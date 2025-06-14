@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,8 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { CartProvider } from "@/hooks/useCart";
+import { Analytics } from '@vercel/analytics/next';
+
 import Index from "./pages/Index";
 import Quote from "./pages/Quote";
 import Store from "./pages/Store";
@@ -283,6 +284,7 @@ const App = () => (
         </TooltipProvider>
       </CartProvider>
     </ThemeProvider>
+    <Analytics />
   </QueryClientProvider>
 );
 
