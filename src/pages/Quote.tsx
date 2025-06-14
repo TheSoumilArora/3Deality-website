@@ -1,67 +1,141 @@
-import { useState } from "react";
+
+import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { MATERIAL_RATES_INR, useQuoteCalculation } from "@/hooks/useQuoteCalculation";
-import Model3DViewer from "@/components/quote/Model3DViewer";
-import AddToCartButton from "@/components/quote/AddToCartButton";
+import MaterialShowcase from '@/components/quote/MaterialShowcase';
+import ServiceCategories from '@/components/quote/ServiceCategories';
+import WhatsAppContact from '@/components/quote/WhatsAppContact';
+import QuoteForm from '@/components/quote/QuoteForm';
+import GoogleReviews from '@/components/quote/GoogleReviews';
+import { Button } from '@/components/ui/button';
+import { ArrowDown, FileText, MessageCircle } from 'lucide-react';
 
 export default function QuotePage() {
-  const [file, setFile]         = useState<File | null>(null);
-  const [material, setMaterial] = useState<keyof typeof MATERIAL_RATES_INR>("PLA");
-  const [infill, setInfill]     = useState(20);
+  const scrollToForm = () => {
+    document.getElementById('quote-form')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-  const { volume, price } = useQuoteCalculation(file, material, infill);
+  const scrollToWhatsApp = () => {
+    document.getElementById('whatsapp-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-black dark:to-gray-900">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-black dark:to-gray-900"
+    >
       <Navbar />
-    <section className="max-w-5xl mx-auto p-6 space-y-6">
-      {/* Upload control */}
-      <input
-        type="file"
-        accept=".stl"
-        onChange={e => setFile(e.target.files?.[0] ?? null)}
-      />
-
-      {/* Preview */}
-      <Model3DViewer file={file} />
-
-      {/* Settings */}
-      <div className="grid sm:grid-cols-3 gap-4 items-center">
-        <select
-          className="border rounded p-2"
-          value={material}
-          onChange={e => setMaterial(e.target.value as any)}
-        >
-          {Object.keys(MATERIAL_RATES_INR).map(mat => (
-            <option key={mat}>{mat}</option>
+      
+      {/* Hero Section */}
+      <section className="pt-24 pb-16 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-black dark:via-gray-900 dark:to-black" />
+        
+        {/* Animated background elements */}
+        <div className="absolute inset-0">
+          {[...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-2 h-2 bg-gradient-primary rounded-full opacity-20"
+              animate={{
+                y: [0, -100, 0],
+                x: [0, 50, 0],
+                opacity: [0, 1, 0]
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2
+              }}
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`
+              }}
+            />
           ))}
-        </select>
+        </div>
 
-        <input
-          type="range"
-          min={10} max={100} step={5}
-          value={infill}
-          onChange={e => setInfill(Number(e.target.value))}
-        />
-        <span>{infill}% infill</span>
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center max-w-4xl mx-auto"
+          >
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+              Get Your{' '}
+              <span className="bg-gradient-primary bg-clip-text text-transparent">
+                3D Printing
+              </span>{' '}
+              Quote
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
+              Professional 3D printing services for e-commerce, rapid prototyping, and custom manufacturing. 
+              Get instant quotes and expert consultation.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <Button 
+                size="lg"
+                onClick={scrollToWhatsApp}
+                className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-6"
+              >
+                <MessageCircle className="mr-2 h-5 w-5" />
+                WhatsApp Quote
+              </Button>
+              
+              <Button 
+                size="lg"
+                variant="outline"
+                onClick={scrollToForm}
+                className="text-lg px-8 py-6 glass-card hover:bg-white/80 dark:hover:bg-white/10"
+              >
+                <FileText className="mr-2 h-5 w-5" />
+                Request Quote
+              </Button>
+            </div>
+
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="flex justify-center"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={scrollToForm}
+                className="rounded-full"
+              >
+                <ArrowDown className="h-6 w-6" />
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Service Categories */}
+      <ServiceCategories />
+
+      {/* Material Showcase */}
+      <MaterialShowcase />
+
+      {/* WhatsApp Contact Section */}
+      <div id="whatsapp-section">
+        <WhatsAppContact />
       </div>
 
-      {/* Summary + CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <p className="text-lg font-semibold">
-          Volume {volume.toFixed(2)} cm³   |   Price ₹{price}
-        </p>
+      {/* Google Reviews */}
+      <GoogleReviews />
 
-        <AddToCartButton
-          file={file}
-          material={material}
-          infill={infill}
-          price={price}
-        />
+      {/* Quote Form */}
+      <div id="quote-form">
+        <QuoteForm />
       </div>
-    </section>
-    <Footer />
-    </div>
+
+      <Footer />
+    </motion.div>
   );
 }
