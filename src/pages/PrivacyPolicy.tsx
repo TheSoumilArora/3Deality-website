@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -21,48 +20,52 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-2xl font-semibold mb-4">Information We Collect</h2>
               <p className="text-muted-foreground">
-                We collect information you provide directly to us, such as when you create an account, 
-                place an order, or contact us for support. This may include your name, email address, 
-                phone number, shipping address, and payment information.
+                We collect information you provide directly to us, such as when you create an account,
+                place an order, or contact us. This may include your name, email, phone number, shipping
+                address, and payment information.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold mb-4">How We Use Your Information</h2>
               <p className="text-muted-foreground">
-                We use the information we collect to provide, maintain, and improve our services, 
-                process transactions, send you technical notices and support messages, and communicate 
-                with you about products, services, and promotional offers.
+                We use this information to process orders, provide customer service, and improve
+                our website and services. We may also contact you about offers or updates.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold mb-4">Information Sharing</h2>
               <p className="text-muted-foreground">
-                We do not sell, trade, or otherwise transfer your personal information to third parties 
-                without your consent, except as described in this policy or as required by law.
+                We do not sell your data. We may share your information with third parties like payment
+                processors, delivery services, and analytics tools solely to complete your order or improve
+                services.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4">Data Security</h2>
+              <h2 className="text-2xl font-semibold mb-4">Cookies</h2>
               <p className="text-muted-foreground">
-                We implement appropriate security measures to protect your personal information against 
-                unauthorized access, alteration, disclosure, or destruction.
+                We use cookies to personalize your experience, analyze traffic, and serve relevant content.
+              </p>
+            </section>
+            
+            <section>
+              <h2 className="text-2xl font-semibold mb-4">Data Retention</h2>
+              <p className="text-muted-foreground">
+                We retain data only as long as necessary to fulfill orders or legal obligations.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold mb-4">Contact Us</h2>
               <p className="text-muted-foreground">
-                If you have any questions about this Privacy Policy, please contact us at soumil789@gmail.com 
-                or call us at +91-8847559327.
+                Questions? Contact us at soumil789@gmail.com or call +91-8847559327 (Mon–Sat, 10AM–6PM IST).
               </p>
             </section>
           </div>
         </motion.div>
       </div>
-      
       <Footer />
     </div>
   );

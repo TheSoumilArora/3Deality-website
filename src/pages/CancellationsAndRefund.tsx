@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -21,9 +20,9 @@ export default function CancellationsAndRefund() {
             <section>
               <h2 className="text-2xl font-semibold mb-4">Order Cancellation</h2>
               <p className="text-muted-foreground">
-                Orders can be cancelled within 24 hours of placement, provided they have not 
-                entered the printing phase. Once printing has begun, orders cannot be cancelled 
-                due to the custom nature of 3D printing.
+                Orders cannot be cancelled once placed as each order is handled individually and
+                production may begin immediately. If you believe you made a mistake while placing
+                your order, please contact us immediately at soumil789@gmail.com or +91-8847559327.
               </p>
             </section>
 
@@ -38,9 +37,10 @@ export default function CancellationsAndRefund() {
             <section>
               <h2 className="text-2xl font-semibold mb-4">Return Process</h2>
               <p className="text-muted-foreground">
-                To initiate a return, please contact us within 7 days of receiving your order. 
-                Items must be returned in their original condition. Return shipping costs may 
-                apply unless the return is due to our error.
+                Contact us within 2 days of receiving your order to initiate a return.
+                Items must be in original, unused condition with packaging intact.
+                Return shipping costs may apply unless the return is due to our error, and
+                the cost will be borne by us in such cases.
               </p>
             </section>
 

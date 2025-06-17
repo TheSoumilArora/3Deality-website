@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -21,11 +20,17 @@ export default function TermsAndConditions() {
             <section>
               <h2 className="text-2xl font-semibold mb-4">Acceptance of Terms</h2>
               <p className="text-muted-foreground">
-                By accessing and using 3Deality's services, you accept and agree to be bound by the 
-                terms and provision of this agreement.
+              By using our website and services, you agree to be bound by these terms.
               </p>
             </section>
 
+            <section>
+              <h2 className="text-2xl font-semibold mb-4">User Responsibilities</h2>
+              <p className="text-muted-foreground">
+                You agree not to misuse the website or interfere with its normal operation. Illegal or unauthorized use is prohibited.
+              </p>
+            </section>
+            
             <section>
               <h2 className="text-2xl font-semibold mb-4">Use License</h2>
               <p className="text-muted-foreground">
@@ -54,17 +59,23 @@ export default function TermsAndConditions() {
             </section>
 
             <section>
+              <h2 className="text-2xl font-semibold mb-4">Modifications to Terms</h2>
+              <p className="text-muted-foreground">
+                These terms may change at any time. Continued use after updates implies agreement.
+              </p>
+            </section>
+
+            <section>
               <h2 className="text-2xl font-semibold mb-4">Governing Law</h2>
               <p className="text-muted-foreground">
                 These terms and conditions are governed by and construed in accordance with the 
                 laws of India and you irrevocably submit to the exclusive jurisdiction of the 
-                courts in that state or location.
+                courts in the state of Punjab.
               </p>
             </section>
           </div>
         </motion.div>
       </div>
-      
       <Footer />
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -21,8 +20,9 @@ export default function ShippingAndDelivery() {
             <section>
               <h2 className="text-2xl font-semibold mb-4">Processing Time</h2>
               <p className="text-muted-foreground">
-                All orders are processed within 1-3 business days. Processing time may be extended 
-                during peak seasons or for custom orders requiring special attention.
+                All orders are processed within 24-48 hours. Processing time may be extended 
+                during peak seasons or for custom orders requiring special attention. (ETA will
+                be communicated via phone / email after order confirmation.)
               </p>
             </section>
 
@@ -39,14 +39,15 @@ export default function ShippingAndDelivery() {
               <h2 className="text-2xl font-semibold mb-4">Delivery Areas</h2>
               <p className="text-muted-foreground">
                 We currently deliver across India. For international orders, please contact us 
-                directly for shipping quotes and delivery times.
+                directly for shipping quotes and delivery times. Duties or customs fees are borne
+                by the recipient.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold mb-4">Order Tracking</h2>
               <p className="text-muted-foreground">
-                Once your order is shipped, you will receive a tracking number via email. 
+                Once your order is shipped, you will receive a tracking number via phone / email. 
                 You can use this number to track your package's progress.
               </p>
             </section>
@@ -61,7 +62,6 @@ export default function ShippingAndDelivery() {
           </div>
         </motion.div>
       </div>
-      
       <Footer />
     </div>
   );
