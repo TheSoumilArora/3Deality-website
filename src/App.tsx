@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { CartProvider } from "@/hooks/useCart";
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import Index from "./pages/Index";
 import Quote from "./pages/Quote";
@@ -285,6 +286,7 @@ const App = () => (
       </CartProvider>
     </ThemeProvider>
     <Analytics />
+    <SpeedInsights />
   </QueryClientProvider>
 );
 
