@@ -1,7 +1,7 @@
 import Medusa from "@medusajs/medusa-js"
 
-const BASE = import.meta.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL;
-const API_KEY  = import.meta.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY;
+const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL;
+const API_KEY  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY;
 
 export const medusa = new Medusa({
   baseUrl: BASE,
