@@ -105,7 +105,7 @@ export function Footer() {
             {/* Social Links */}
             <div className="flex space-x-4 mb-6">
               {[
-                { icon: Instagram, href: '#', label: 'Instagram' },
+                { icon: Instagram, href: 'https://www.instagram.com/3deality.in/', label: 'Instagram' },
                 { icon: Linkedin, href: '#', label: 'LinkedIn' },
                 { icon: Twitter, href: '#', label: 'Twitter' }
               ].map((social) => (
