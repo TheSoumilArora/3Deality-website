@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { User, LogIn, UserPlus, Heart, Package, Settings, LogOut } from 'lucide-react';

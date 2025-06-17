@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Moon, Sun, Menu, X } from 'lucide-react';
