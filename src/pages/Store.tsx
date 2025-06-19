@@ -41,23 +41,20 @@ export default function Store() {
         })
         console.log("🔎 medusa.products.list() →", { products })
 
-        // Handle case where products might be undefined
         const productList = products || []
         setAllProducts(productList)
         setFiltered(productList)
 
-        // Safely extract categories from products
         const cats = Array.from(
           new Set(
             productList.flatMap((p: any) =>
-              (p.tags && Array.isArray(p.tags)) ? p.tags.map((t: any) => t.value || '') : []
+              Array.isArray(p.tags) ? p.tags.map((t: any) => t.value || "") : []
             ).filter(Boolean)
           )
         )
         setCategories([...BASE_CATS, ...cats])
       } catch (err) {
         console.error("Failed to load products:", err)
-        // Set empty arrays to prevent crashes
         setAllProducts([])
         setFiltered([])
         toast.error("Failed to load products. Please try again later.")
@@ -72,8 +69,8 @@ export default function Store() {
     let res = allProducts
 
     if (selectedCat !== "All") {
-      res = res.filter((p) =>
-        (p.tags && Array.isArray(p.tags)) && p.tags.some((t: any) => t.value === selectedCat)
+      res = res.filter(
+        (p) => Array.isArray(p.tags) && p.tags.some((t: any) => t.value === selectedCat)
       )
     }
 
@@ -89,70 +86,20 @@ export default function Store() {
     setFiltered(res)
   }, [search, selectedCat, allProducts])
 
-  // Helper function to extract price from Medusa product variant
+  /** Returns price in **rupees** (integer) */
   const getProductPrice = (product: any) => {
-    console.log("🔍 Extracting price for product:", product.title, product)
-    
-    if (!product.variants || !Array.isArray(product.variants) || product.variants.length === 0) {
-      console.log("❌ No variants found")
-      return 0
+    const variant = product.variants?.[0]
+    if (!variant) return 0
+
+    const cp = variant.calculated_price
+    if (cp) {
+      let amount = cp.calculated_amount ?? cp.original_amount ?? 0
+      if (typeof amount === "string") amount = parseInt(amount, 10)
+      return amount
     }
 
-    const variant = product.variants[0]
-    console.log("🔍 First variant:", variant)
-
-    if (!variant.prices || !Array.isArray(variant.prices)) {
-      console.log("❌ No prices array found")
-      return 0
-    }
-
-    // Handle different price structures
-    let price = 0
-    
-    // Try different approaches to get the price
-    if (variant.prices.length > 0) {
-      const priceObj = variant.prices[0]
-      console.log("🔍 First price object:", priceObj)
-      
-      // Check if it's a direct price object with amount
-      if (priceObj && typeof priceObj.amount === 'number' && priceObj.amount !== null) {
-        price = priceObj.amount
-      }
-      // Check if it's a nested structure with numbered keys
-      else if (priceObj && typeof priceObj === 'object') {
-        // Look for numbered keys (0, 1, 2, etc.)
-        const keys = Object.keys(priceObj)
-        for (const key of keys) {
-          if (priceObj[key] && typeof priceObj[key].amount === 'number' && priceObj[key].amount !== null) {
-            price = priceObj[key].amount
-            break
-          }
-        }
-      }
-      
-      // If still no price found, try to find any price-like field
-      if (price === 0 && priceObj) {
-        // Look for other possible price fields
-        const possiblePriceFields = ['unit_price', 'calculated_price', 'original_price', 'price']
-        for (const field of possiblePriceFields) {
-          if (priceObj[field] && typeof priceObj[field] === 'number' && priceObj[field] !== null) {
-            price = priceObj[field]
-            console.log(`🔍 Found price in field ${field}:`, price)
-            break
-          }
-        }
-      }
-    }
-
-    console.log("💰 Final extracted price:", price)
-    
-    // If no price found, return a default price for demo purposes
-    if (price === 0) {
-      console.log("⚠️ No price found, returning default price")
-      return 99900 // Default ₹999.00 in cents
-    }
-    
-    return price
+    // fallback – shouldn’t happen with v2 list()
+    return 0
   }
 
   const handleAddToCart = async (product: any) => {
@@ -171,13 +118,12 @@ export default function Store() {
 
       const price = getProductPrice(product)
 
-      // Add to local cart for now (you can integrate with Medusa cart later)
       addToCart({
         filename: product.title || "Unknown Product",
         material: variant.title || "Default",
-        infill: 20, // Default infill
+        infill: 20,
         layerHeight: "0.2",
-        price: Math.round(price / 100) // Convert from cents to rupees
+        price: Math.round(price), // already rupees
       })
 
       toast.success("Added to cart!")
@@ -193,7 +139,7 @@ export default function Store() {
 
   if (loading) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -211,7 +157,7 @@ export default function Store() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -232,8 +178,8 @@ export default function Store() {
             3D Print Store
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Discover our collection of ready-to-print designs and custom products. 
-            High-quality 3D models for every need.
+            Discover our collection of ready-to-print designs and custom
+            products. High-quality 3D models for every need.
           </p>
         </motion.div>
 
@@ -274,7 +220,7 @@ export default function Store() {
         </motion.div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Enhanced Sidebar */}
+          {/* Sidebar */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -337,7 +283,7 @@ export default function Store() {
                     whileHover={{ y: -5 }}
                   >
                     <Card className="group h-full overflow-hidden glass-card border-primary/20 hover:border-primary/40 transition-all duration-300">
-                      <div 
+                      <div
                         className="relative h-48 bg-gradient-to-br from-muted/30 to-muted/60 cursor-pointer overflow-hidden"
                         onClick={() => handleProductClick(product.id)}
                       >
@@ -362,14 +308,17 @@ export default function Store() {
 
                       <CardHeader>
                         <div className="flex justify-between items-start">
-                          <CardTitle 
+                          <CardTitle
                             className="cursor-pointer hover:text-primary transition-colors"
                             onClick={() => handleProductClick(product.id)}
                           >
                             {product.title || "Untitled Product"}
                           </CardTitle>
                           <div className="flex flex-col gap-1">
-                            <Badge variant="secondary" className="bg-primary/10 text-primary">
+                            <Badge
+                              variant="secondary"
+                              className="bg-primary/10 text-primary"
+                            >
                               {product.tags?.[0]?.value || "Product"}
                             </Badge>
                             {hasMultipleVariants && (
@@ -388,9 +337,13 @@ export default function Store() {
 
                       <CardFooter className="flex justify-between items-center">
                         <div className="text-2xl font-bold text-primary">
-                          ₹{(price / 100).toFixed(2)}
+                          ₹
+                          {price.toLocaleString("en-IN", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </div>
-                        <Button 
+                        <Button
                           onClick={() => handleAddToCart(product)}
                           className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground"
                         >
@@ -413,14 +366,17 @@ export default function Store() {
                 <div className="w-24 h-24 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
                   <Search className="h-12 w-12 text-muted-foreground" />
                 </div>
-                <h3 className="text-2xl font-semibold mb-2">No products found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                <h3 className="text-2xl font-semibold mb-2">
+                  No products found
+                </h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filter criteria
+                </p>
               </motion.div>
             )}
           </div>
         </div>
       </div>
-
       <Footer />
     </motion.div>
   )
