@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import medusa from "../lib/medusaClient"
@@ -36,7 +35,10 @@ export default function Store() {
     async function load() {
       setLoading(true)
       try {
-        const { products } = await medusa.products.list({ limit: 100 })
+        const { products } = await medusa.products.list({
+          limit: 100,
+          region_id: import.meta.env.VITE_MEDUSA_REGION_ID,
+        })
         console.log("🔎 medusa.products.list() →", { products })
 
         // Handle case where products might be undefined
