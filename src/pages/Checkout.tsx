@@ -1,19 +1,20 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import {ArrowLeft,Truck,CreditCard,ShoppingCart,Loader2,} from "lucide-react"
+import { ArrowLeft, Truck, CreditCard, ShoppingCart, Loader2 } from "lucide-react"
 import medusa from "@/lib/medusaClient"
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import { useCart } from '@/hooks/useCart';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from "sonner";
+import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
+import { useCart } from "@/hooks/useCart"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
+import { stateCodes } from "@/lib/stateCodes"
 
 export default function Checkout() {
   const { cart, items, clearCart } = useCart()
@@ -31,15 +32,44 @@ export default function Checkout() {
     city: "",
     province: "",
     postal_code: "",
-    country_code: "IN",
+    country_code: "in",
   })
 
   const [options, setOptions] = useState<any[]>([])
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
 
+  const formatINR = (paise = 0) =>
+    `₹${(paise / 100).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+
+  const lineTotal = (li: any) => li.unit_price * li.quantity
+
   const fetchOptions = async (id: string) => {
     const { shipping_options } = await medusa.shippingOptions.listCart(id)
     setOptions(shipping_options)
+  }
+
+  /* Autofill city + state from PIN */
+  const handlePincodeBlur = async () => {
+    if (ship.postal_code.length !== 6) return
+    try {
+      const res = await fetch(
+        `https://api.postalpincode.in/pincode/${ship.postal_code}`
+      ).then((r) => r.json())
+
+      if (res[0].Status === "Success") {
+        const { District, State } = res[0].PostOffice[0]
+        setShip((p) => ({
+          ...p,
+          city: District,
+          province: stateCodes[State] || "",
+        }))
+      }
+    } catch {
+      /* silent - user can type manually */
+    }
   }
 
   const handleShipSubmit = async (e: React.FormEvent) => {
@@ -48,9 +78,14 @@ export default function Checkout() {
 
     setBusy(true)
     try {
-      // 1. attach address
-      await medusa.carts.update(cart.id, { shipping_address: ship })
-      // 2. fetch options
+      await medusa.carts.update(cart.id, {
+        email: ship.email,
+        shipping_address: {
+          ...ship,
+          country_code: "in",
+        },
+      })
+
       await fetchOptions(cart.id)
       setStep("payment")
       toast.success("Address saved")
@@ -70,15 +105,11 @@ export default function Checkout() {
 
     setBusy(true)
     try {
-      await medusa.carts.addShippingMethod(cart.id, {
-        option_id: selectedOpt,
-      })
-
-      // Create payment session (Razorpay)
+      await medusa.carts.addShippingMethod(cart.id, { option_id: selectedOpt })
       await medusa.carts.createPaymentSessions(cart.id)
       await medusa.carts.setPaymentSession(cart.id, "razorpay")
 
-      // TODO: open Razorpay widget here and, on success → complete cart
+      /* TODO: open Razorpay widget here */
       toast.success("Pretend Razorpay succeeded 🙂")
       await medusa.carts.complete(cart.id)
 
@@ -92,19 +123,9 @@ export default function Checkout() {
     }
   }
 
-  const formatINR = (paise = 0) =>
-    `${(paise / 100).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`
-
-  const lineTotal = (li: any) => li.unit_price * li.quantity
-
-  if (!cart) {
-    return null // the CartProvider is still boot-strapping
-  }
-
-  if (items.length === 0) {
+  /* -------------------------------------------------- */
+  if (!cart) return null
+  if (items.length === 0)
     return (
       <div className="min-h-screen">
         <Navbar />
@@ -115,14 +136,12 @@ export default function Checkout() {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Navbar />
 
       <div className="container mx-auto px-4 py-10">
-        {/* back link */}
         <Button
           variant="ghost"
           className="mb-6 flex items-center gap-2"
@@ -131,12 +150,10 @@ export default function Checkout() {
           <ArrowLeft className="h-4 w-4" /> Cart
         </Button>
 
-        {/* -------------------------------------------------- *
-         *  GRID LAYOUT
-         * -------------------------------------------------- */}
         <div className="grid lg:grid-cols-3 gap-8">
+          {/* ---------------- LEFT COLUMN ---------------- */}
           <div className="lg:col-span-2 space-y-8">
-            {/* ---------------- SHIPPING STEP ---------------- */}
+            {/* ----- SHIPPING STEP ----- */}
             {step === "shipping" && (
               <Card>
                 <CardHeader>
@@ -209,7 +226,7 @@ export default function Checkout() {
                         />
                       </div>
                       <div>
-                        <Label>State</Label>
+                        <Label>State (code)</Label>
                         <Input
                           required
                           value={ship.province}
@@ -224,8 +241,12 @@ export default function Checkout() {
                           required
                           value={ship.postal_code}
                           onChange={(e) =>
-                            setShip({ ...ship, postal_code: e.target.value })
+                            setShip({
+                              ...ship,
+                              postal_code: e.target.value.replace(/\D/g, ""),
+                            })
                           }
+                          onBlur={handlePincodeBlur}
                         />
                       </div>
                     </div>
@@ -242,7 +263,7 @@ export default function Checkout() {
               </Card>
             )}
 
-            {/* ---------------- PAYMENT STEP ---------------- */}
+            {/* ----- PAYMENT STEP ----- */}
             {step === "payment" && (
               <Card>
                 <CardHeader>
@@ -251,7 +272,7 @@ export default function Checkout() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* SHIPPING OPTION CHOICE */}
+                  {/* shipping methods */}
                   <div className="space-y-2">
                     <h4 className="font-medium">Choose shipping method</h4>
                     {options.map((opt) => (
@@ -278,7 +299,6 @@ export default function Checkout() {
                     ))}
                   </div>
 
-                  {/* PAYMENT METHOD (Razorpay only for now) */}
                   <Button
                     disabled={busy}
                     className="w-full bg-gradient-to-r from-primary to-primary/80"
@@ -287,7 +307,7 @@ export default function Checkout() {
                     {busy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      `Pay ₹${cart.total ? cart.total / 100 : ""} with Razorpay`
+                      `Pay ${formatINR(cart.total || 0)} with Razorpay`
                     )}
                   </Button>
                 </CardContent>
@@ -295,7 +315,7 @@ export default function Checkout() {
             )}
           </div>
 
-          {/* ---------------- ORDER SUMMARY ---------------- */}
+          {/* ---------------- RIGHT COLUMN ---------------- */}
           <div>
             <Card className="sticky top-24">
               <CardHeader>
@@ -324,7 +344,9 @@ export default function Checkout() {
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>
-                      {cart.shipping_total ? formatINR(cart.shipping_total) : "—"}
+                      {cart.shipping_total
+                        ? formatINR(cart.shipping_total)
+                        : "—"}
                     </span>
                   </div>
                 </div>
