@@ -92,8 +92,8 @@ export default function Checkout() {
     }
   }
 
-  const ₹ = (n = 0) =>
-    `₹${(n / 100).toLocaleString("en-IN", {
+  const formatINR = (paise = 0) =>
+    `${(paise / 100).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`
@@ -266,7 +266,7 @@ export default function Checkout() {
                         <span>
                           {opt.name} –{" "}
                           {opt.amount
-                            ? ₹(opt.amount)
+                            ? formatINR(opt.amount)
                             : "Calculated at next step"}
                         </span>
                         <input
@@ -310,7 +310,7 @@ export default function Checkout() {
                     <span>
                       {li.title} × {li.quantity}
                     </span>
-                    <span>{₹(lineTotal(li))}</span>
+                    <span>{formatINR(lineTotal(li))}</span>
                   </div>
                 ))}
 
@@ -319,12 +319,12 @@ export default function Checkout() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>{₹(cart.subtotal || 0)}</span>
+                    <span>{formatINR(cart.subtotal || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>
-                      {cart.shipping_total ? ₹(cart.shipping_total) : "—"}
+                      {cart.shipping_total ? formatINR(cart.shipping_total) : "—"}
                     </span>
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function Checkout() {
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span className="text-primary">
-                    {cart.total ? ₹(cart.total) : "—"}
+                    {cart.total ? formatINR(cart.total) : "—"}
                   </span>
                 </div>
 
