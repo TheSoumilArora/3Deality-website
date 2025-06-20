@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import {useEffect, useState} from "react"
+import {useNavigate} from "react-router-dom"
 import {
   ArrowLeft,
   Truck,
@@ -23,424 +23,290 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
-export default function Checkout() {
-  const { cart, items, clearCart, cartCount } = useCart()
+export default function Checkout () {
+  const {cart, items, cartCount, clearCart} = useCart()
   const navigate = useNavigate()
 
-  /* ───────── component state ───────── */
-  const [step, setStep] = useState<"ship" | "pay">("ship")
-  const [busy, setBusy] = useState(false)
-  const [promoBusy, setPromoBusy] = useState(false)
-  const [code, setCode] = useState("")
+  const [busy,       setBusy]   = useState(false)
+  const [promoBusy,  setPB]     = useState(false)
+  const [code,       setCode]   = useState("")
 
+  /* address ----------------------------------------------------------- */
   const [addr, setAddr] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    address_1: "",
-    address_2: "",
-    landmark: "",
-    city: "",
-    province: "",
-    postal_code: "",
-    country_code: "in",
+    first_name:"", last_name:"", email:"", phone:"",
+    address_1:"", address_2:"", landmark:"",
+    city:"", province:"", postal_code:"", country_code:"in"
   })
-  const [locked, setLocked] = useState({ city: true, province: true })
-  const [shipOpts, setShipOpts] = useState<any[]>([])
-  const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
+  const [lock, setLock] = useState({city:true, province:true})
 
-  /* ───────── helpers ───────── */
-  const lineTotal = (li: any) => li.unit_price * li.quantity
+  /* shipping options --------------------------------------------------- */
+  const [options,     setOpt]   = useState<any[]>([])
+  const [selected,    setSel]   = useState<string|undefined>()
+  const selectedCost  = options.find(o=>o.id===selected)?.amount ?? 0
 
-  const fetchShipOpts = async () => {
-    if (!cart) return
-    const { shipping_options } = await medusa.shippingOptions.list({ cart_id: cart.id })
+  /* helpers ------------------------------------------------------------ */
+  const lineTotal = (li:any)=> li.unit_price*li.quantity
+  const cartSubtotal = cart?.subtotal ?? items.reduce((s,li)=>s+lineTotal(li),0)
+  const cartDiscount = (cart?.discount_total ?? 0) + (cart?.gift_card_total ?? 0)
+  const calcTotal    = cartSubtotal + selectedCost - cartDiscount                 // GST is not collected yet
 
-    setShipOpts(shipping_options)
-    if (!chosenShip && shipping_options.length) setChosenShip(shipping_options[0])
+  /* --------------------------------------------------------------------- FX */
+  /* fetch shipping opts AFTER address saved */
+  const fetchOpts = async()=> {
+    if(!cart) return
+    const {shipping_options}= await medusa.shippingOptions.list({cart_id:cart.id})
+    setOpt(shipping_options)
   }
 
-  /* PIN-code autofill */
+  /* pincode → autofill city/state ------------------------------------- */
   const handlePinBlur = async () => {
-    if (addr.postal_code.length !== 6) return
-    try {
-      const r = await fetch(
-        `https://api.postalpincode.in/pincode/${addr.postal_code}`
-      ).then((x) => x.json())
-      if (r[0].Status === "Success") {
-        setLocked({ city: false, province: false })  // unlock if lookup failed
-        const { District, State } = r[0].PostOffice[0]
-        setAddr((a) => ({
-          ...a,
-          city: District,
-          province: stateCodes[State] || "",
-        }))
-        setLocked({ city: true, province: true })
+    if (addr.postal_code.length!==6) return
+    try{
+      const res = await fetch(`https://api.postalpincode.in/pincode/${addr.postal_code}`)
+                     .then(r=>r.json())
+      if(res[0].Status==="Success"){
+        const {District, State}= res[0].PostOffice[0]
+        setAddr(a=>({...a, city:District, province:stateCodes[State]||""}))
+        setLock({city:true, province:true})
+      }else{
+        setLock({city:false,province:false})
       }
-    } catch {
-      setLocked({ city: false, province: false })  // unlock if lookup failed
-    }
+    }catch{ setLock({city:false,province:false}) }
   }
 
-  /* Submit address */
-  const saveAddress = async (e: React.FormEvent) => {
+  /* save address & load options --------------------------------------- */
+  const saveAddress = async(e:React.FormEvent)=>{
     e.preventDefault()
-    if (!cart) return
+    if(!cart) return
     setBusy(true)
-    try {
-      const { landmark, email, ...core } = addr
-      await medusa.carts.update(cart.id, {
+    try{
+      const {landmark,email, ...core}=addr
+      await medusa.carts.update(cart.id,{
         email,
-        shipping_address: {
-          ...core,
-          metadata: landmark ? { landmark } : undefined,
-        },
+        shipping_address:{...core, metadata:landmark?{landmark}:undefined}
       })
-      await fetchShipOpts()
-      setStep("pay")
-      toast.success("Address saved")
-    } catch (err: any) {
+      await fetchOpts()
+      toast.success("Address saved – choose your shipping")
+    }catch(err){
       console.error(err)
-      toast.error("Could not save address – server rejected the data")
-    } finally {
-      setBusy(false)
+      toast.error("Server rejected the address")
+    }finally{setBusy(false)}
+  }
+
+  /* add / change shipping method -------------------------------------- */
+  const chooseShipping = async(optId:string)=>{
+    if(!cart) return
+    try{
+      await medusa.carts.addShippingMethod(cart.id, {option_id:optId})
+      const {cart:updated}= await medusa.carts.retrieve(cart.id)
+      // Medusa returns paise; it is already in cart.shipping_total
+      setSel(optId)
+      setOpt(o=>o)            // no change; needed only to re-render
+      toast.success("Shipping updated")
+    }catch(err){
+      toast.error("Couldn’t set shipping, try again")
     }
   }
 
-  /* Apply promo / gift */
-  const applyCode = async () => {
-    if (!cart || !code.trim()) return
-    setPromoBusy(true)
-    const c = code.trim()
-    try {
-      await medusa.carts
-            .applyPromotion(cart.id, { code: c.trim() })
-            .catch(() =>
-              medusa.carts.applyGiftCard(cart.id, { code: c })
-            )
-
-      toast.success("Code applied")
-      window.location.reload() // easiest way to sync totals
-    } catch {
+  /* promotions --------------------------------------------------------- */
+  const applyCode = async()=>{
+    if(!cart || !code.trim()) return
+    setPB(true)
+    try{
+      await medusa.carts.addPromotions(cart.id,{promo_codes:[code.trim()]})
+      const {cart:updated}= await medusa.carts.retrieve(cart.id)
+      toast.success("Promotion applied")
+      window.location.reload()
+    }catch{
       toast.error("Invalid code")
-    } finally {
-      setPromoBusy(false)
-    }
+    }finally{ setPB(false) }
   }
 
-  /* Pay */
-  const pay = async () => {
-    if (!cart || !selectedOpt) {
-      toast.error("Please choose a shipping method")
+  /* pay – Razorpay placeholder ---------------------------------------- */
+  const pay = async()=>{
+    if(!cart || !selected){
+      toast.error("Select a shipping method first")
       return
     }
     setBusy(true)
-    try {
-      await medusa.carts.addShippingMethod(cart.id, { option_id: selectedOpt })
+    try{
       await medusa.carts.createPaymentSessions(cart.id)
-      await medusa.carts.setPaymentSession(cart.id, "razorpay")
-      /* TODO: real Razorpay widget here */
-      toast.success("Pretend payment succeeded 🙂")
+      await medusa.carts.setPaymentSession(cart.id,"razorpay")
+      /* TODO: open Razorpay widget & on success: */
       await medusa.carts.complete(cart.id)
       clearCart()
       navigate("/order-confirmation")
-    } catch {
-      toast.error("Payment failed")
-    } finally {
-      setBusy(false)
-    }
+    }catch(err){
+      console.error(err); toast.error("Payment failed")
+    }finally{ setBusy(false) }
   }
 
-  /* ───────── guard screens ───────── */
-  if (!cart) return null
-  if (cartCount === 0)
-    return (
-      <div className="min-h-screen">
-        <Navbar />
+  /* ---------------------------------------------------------------- guards */
+  if(!cart)            return null
+  if(cartCount===0)    return (
+      <div className="min-h-screen"><Navbar/>
         <div className="py-32 text-center">
-          <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-          <Button onClick={() => navigate("/store")}>Browse Products</Button>
+          <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4"/>
+          <Button onClick={()=>navigate("/store")}>Browse Products</Button>
         </div>
-      </div>
-    )
+      </div>)
 
-  /* ───────── UI ───────── */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <Navbar />
+  <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <Navbar/>
+    <div className="container mx-auto px-4 py-10">
+      <Button variant="ghost" className="mb-6" onClick={()=>navigate("/cart")}>
+        <ArrowLeft className="mr-1 h-4 w-4"/> Cart
+      </Button>
 
-      <div className="container mx-auto px-4 py-10">
-        <Button variant="ghost" className="mb-6" onClick={() => navigate("/cart")}>
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Cart
-        </Button>
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* ---------------- left column */}
+        <div className="lg:col-span-2 space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex gap-2 items-center">
+              <Truck className="h-4 w-4"/> Shipping
+            </CardTitle>
+            </CardHeader>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* LEFT column */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* SHIPPING STEP */}
-            {step === "ship" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="w-4 h-4" /> Shipping
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4" onSubmit={saveAddress}>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>First name *</Label>
-                        <Input
-                          required
-                          value={addr.first_name}
-                          onChange={(e) =>
-                            setAddr({ ...addr, first_name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Last name *</Label>
-                        <Input
-                          required
-                          value={addr.last_name}
-                          onChange={(e) =>
-                            setAddr({ ...addr, last_name: e.target.value })
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <Label>Email *</Label>
-                    <Input
-                      required
-                      type="email"
-                      value={addr.email}
-                      onChange={(e) =>
-                        setAddr({ ...addr, email: e.target.value })
-                      }
-                    />
-
-                    <Label>Phone *</Label>
-                    <Input
-                      required
-                      value={addr.phone}
-                      onChange={(e) =>
-                        setAddr({ ...addr, phone: e.target.value })
-                      }
-                    />
-
-                    <Label>Address line 1 *</Label>
-                    <Input
-                      required
-                      value={addr.address_1}
-                      onChange={(e) =>
-                        setAddr({ ...addr, address_1: e.target.value })
-                      }
-                    />
-
-                    <Label>Address line 2</Label>
-                    <Input
-                      value={addr.address_2}
-                      onChange={(e) =>
-                        setAddr({ ...addr, address_2: e.target.value })
-                      }
-                    />
-
-                    <Label>Landmark</Label>
-                    <Input
-                      value={addr.landmark}
-                      onChange={(e) => setAddr({ ...addr, landmark: e.target.value })}
-                    />
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>City</Label>
-                        <Input
-                          value={addr.city}
-                          readOnly={locked.city}
-                          className={locked.city ? "bg-muted" : ""}
-                          onChange={(e) =>
-                            setAddr({ ...addr, city: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>State (code)</Label>
-                        <Input
-                          value={addr.province}
-                          readOnly={locked.province}
-                          className={locked.province ? "bg-muted" : ""}
-                          onChange={(e) =>
-                            setAddr({
-                              ...addr,
-                              province: e.target.value.toUpperCase(),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Pincode *</Label>
-                        <Input
-                          required
-                          value={addr.postal_code}
-                          onChange={(e) =>
-                            setAddr({
-                              ...addr,
-                              postal_code: e.target.value.replace(/\D/g, ""),
-                            })
-                          }
-                          onBlur={handlePinBlur}
-                        />
-                      </div>
-                    </div>
-
-                    <Button disabled={busy} className="w-full mt-6">
-                      {busy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Continue"
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* PAYMENT STEP */}
-            {step === "pay" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" /> Payment & Shipping
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* shipping */}
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Shipping method</h4>
-                    {shipOpts.map((opt) => (
-                      <label
-                        key={opt.id}
-                        className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer ${
-                          selectedOpt === opt.id
-                            ? "border-primary bg-primary/5"
-                            : "border-muted hover:border-primary/50"
-                        }`}
-                      >
-                        <span>
-                          {opt.name} – {formatINR(opt.amount)}
-                        </span>
-                        <input
-                          type="radio"
-                          checked={selectedOpt === opt.id}
-                          onChange={() => setSelectedOpt(opt.id)}
-                        />
-                      </label>
-                    ))}
+            <CardContent>
+              {/* address form ------------------------------------------------ */}
+              <form onSubmit={saveAddress} className="space-y-4">
+                {/* names */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>First name *</Label>
+                    <Input required value={addr.first_name}
+                      onChange={e=>setAddr({...addr,first_name:e.target.value})}/>
                   </div>
-
-                  <Button
-                    disabled={busy}
-                    className="w-full bg-gradient-to-r from-primary to-primary/80"
-                    onClick={pay}
-                  >
-                    {busy ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      `Pay ${formatINR(cart.total || 0)} with Razorpay`
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* RIGHT column: Order summary + promo (always visible) */}
-          <div>
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {items.map((li) => (
-                  <div
-                    key={li.id}
-                    className="flex justify-between text-sm items-center"
-                  >
-                    <span>
-                      {li.title} × {li.quantity}
-                    </span>
-                    <span>{formatINR(lineTotal(li))}</span>
+                  <div>
+                    <Label>Last name *</Label>
+                    <Input required value={addr.last_name}
+                      onChange={e=>setAddr({...addr,last_name:e.target.value})}/>
                   </div>
-                ))}
-
-                <div className="flex gap-2 mt-4">
-                  <Input
-                    placeholder="Promo / Gift-card"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                  <Button onClick={applyCode} disabled={promoBusy}>
-                    {promoBusy ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Percent className="w-4 h-4" />
-                    )}
-                  </Button>
                 </div>
-
-                <Separator className="my-4" />
-
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatINR(cart.subtotal || 0)}</span>
+                {/* email / phone */}
+                <Label>Email *</Label>
+                <Input required type="email" value={addr.email}
+                  onChange={e=>setAddr({...addr,email:e.target.value})}/>
+                <Label>Phone *</Label>
+                <Input required value={addr.phone}
+                  onChange={e=>setAddr({...addr,phone:e.target.value})}/>
+                {/* address lines */}
+                <Label>Address line 1 *</Label>
+                <Input required value={addr.address_1}
+                  onChange={e=>setAddr({...addr,address_1:e.target.value})}/>
+                <Label>Address line 2</Label>
+                <Input value={addr.address_2}
+                  onChange={e=>setAddr({...addr,address_2:e.target.value})}/>
+                <Label>Landmark</Label>
+                <Input value={addr.landmark}
+                  onChange={e=>setAddr({...addr,landmark:e.target.value})}/>
+                {/* city / state / pin */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>City</Label>
+                    <Input readOnly={lock.city} className={lock.city?"bg-muted":""}
+                      value={addr.city}
+                      onChange={e=>setAddr({...addr,city:e.target.value})}/>
                   </div>
-                  {cart.discount_total > 0 && (
-                    <div className="flex justify-between">
-                      <span>Discount</span>
-                      <span>-{formatINR(cart.discount_total)}</span>
-                    </div>
-                  )}
-                  {cart.gift_card_total > 0 && (
-                    <div className="flex justify-between">
-                      <span>Gift Card</span>
-                      <span>-{formatINR(cart.gift_card_total)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>
-                      {cart.shipping_total
-                        ? formatINR(cart.shipping_total)
-                        : "—"}
-                    </span>
+                  <div>
+                    <Label>State</Label>
+                    <Input readOnly className="bg-muted"
+                      value={addr.province}/>
+                  </div>
+                  <div>
+                    <Label>Pincode *</Label>
+                    <Input required value={addr.postal_code}
+                      onBlur={handlePinBlur}
+                      onChange={e=> setAddr({...addr,
+                        postal_code:e.target.value.replace(/\D/g,"")})}/>
                   </div>
                 </div>
 
-                <Separator />
+                <Button disabled={busy} className="w-full mt-6">
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Save & continue"}
+                </Button>
+              </form>
 
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span className="text-primary">
-                    {formatINR(cart.total || 0)}
-                  </span>
+              {/* shipping options (after save) -------------------------------- */}
+              {options.length>0 && (
+                <div className="mt-8 space-y-3">
+                  <h4 className="font-medium mb-2">Choose shipping method</h4>
+                  {options.map(opt=>(
+                    <label key={opt.id}
+                      className={`flex justify-between items-center p-4 border rounded-lg cursor-pointer
+                        ${selected===opt.id?"border-primary bg-primary/5":"border-muted hover:border-primary/50"}`}>
+                      <span>{opt.name} — {formatINR(opt.amount)}</span>
+                      <input type="radio" checked={selected===opt.id}
+                        onChange={()=> chooseShipping(opt.id)}/>
+                    </label>
+                  ))}
                 </div>
+              )}
 
-                {cart.shipping_total === 0 && (
-                  <Badge variant="secondary" className="w-full justify-center">
-                    Free shipping applied!
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              {/* pay ---------------------------------------------------------- */}
+              {selected && (
+                <Button onClick={pay} disabled={busy}
+                  className="w-full mt-6 bg-gradient-to-r from-primary to-primary/80">
+                  {busy
+                    ? <Loader2 className="h-4 w-4 animate-spin"/>
+                    : `Pay ${formatINR(calcTotal)} with Razorpay`}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      <Footer />
+        {/* ---------------- right column – summary */}
+        <Card className="sticky top-24">
+          <CardHeader>
+            <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+          <CardContent className="space-y-4">
+
+            {items.map(li=>(
+              <div key={li.id} className="flex justify-between text-sm">
+                <span>{li.title} × {li.quantity}</span>
+                <span>{formatINR(lineTotal(li))}</span>
+              </div>
+            ))}
+
+            {/* promo ----------------------------------------------------- */}
+            <div className="flex gap-2 mt-4">
+              <Input placeholder="Promo code"
+                     value={code} onChange={e=>setCode(e.target.value)}/>
+              <Button onClick={applyCode} disabled={promoBusy}>
+                {promoBusy? <Loader2 className="h-4 w-4 animate-spin"/>:<Percent className="h-4 w-4"/>}
+              </Button>
+            </div>
+
+            <Separator className="my-4"/>
+
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatINR(cartSubtotal)}</span></div>
+              {cartDiscount>0 && (
+                <div className="flex justify-between"><span>Discount</span><span>-{formatINR(cartDiscount)}</span></div>
+              )}
+              <div className="flex justify-between"><span>Shipping</span>
+                <span>{selected ? formatINR(selectedCost) : "—"}</span></div>
+            </div>
+
+            <Separator/>
+
+            <div className="flex justify-between font-bold text-lg">
+              <span>Total</span><span className="text-primary">{formatINR(calcTotal)}</span>
+            </div>
+
+            {selectedCost===0 && selected && (
+              <Badge variant="secondary" className="justify-center w-full">
+                Free shipping applied!
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  )
+    <Footer/>
+  </div>)
 }
