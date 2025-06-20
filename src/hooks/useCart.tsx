@@ -1,94 +1,122 @@
+import React, {createContext, useContext, useState, useEffect, ReactNode,} from "react"
+import medusa from "@/lib/medusaClient"
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface CartItem {
-  id: string;
-  filename: string;
-  material: string;
-  infill: number;
-  layerHeight: string;
-  price: number;
-  quantity: number;
+interface LineItem {
+  id: string
+  title: string
+  variant_id: string
+  quantity: number
+  unit_price: number        // paise for INR
+  total: number             // unit_price * quantity
 }
 
 interface CartContextType {
-  items: CartItem[];
-  cartCount: number;
-  addToCart: (item: Omit<CartItem, 'id' | 'quantity'>) => void;
-  removeFromCart: (id: string) => void;
-  clearCart: () => void;
+  cart: any | null
+  items: LineItem[]
+  cartCount: number
+  addToCart: (variantId: string, qty?: number) => Promise<void>
+  updateLine: (lineId: string, qty: number) => Promise<void>
+  removeLine: (lineId: string) => Promise<void>
+  clearCart: () => Promise<void>
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem('3deality-cart');
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        setItems(parsedCart);
-      } catch (err) {
-        console.error('Failed to parse cart from localStorage:', err);
-      }
+  // ---------- helpers ----------
+  const createFreshCart = async () => {
+    const { cart: newCart } = await medusa.carts.create({
+      region_id: import.meta.env.VITE_MEDUSA_REGION_ID,
+    })
+    localStorage.setItem("cart_id", newCart.id)
+    return newCart
+  }
+
+  const fetchCart = async (id: string) => {
+    try {
+      const { cart: existing } = await medusa.carts.retrieve(id)
+      return existing
+    } catch {
+      // cart might have been completed/expired
+      return null
     }
-  }, []);
+  }
 
-  // Save cart to localStorage whenever items change
+  // ---------- bootstrap ----------
   useEffect(() => {
-    localStorage.setItem('3deality-cart', JSON.stringify(items));
-  }, [items]);
-
-  const cartCount = items.reduce((total, item) => total + item.quantity, 0);
-
-  const addToCart = (newItem: Omit<CartItem, 'id' | 'quantity'>) => {
-    // Check if item already exists (same filename and material)
-    const existingItemIndex = items.findIndex(
-      item => item.filename === newItem.filename && item.material === newItem.material
-    );
-
-    if (existingItemIndex > -1) {
-      // Update quantity of existing item
-      setItems(prev => prev.map((item, index) => 
-        index === existingItemIndex 
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      // Add new item
-      const id = Date.now().toString();
-      setItems(prev => [...prev, { ...newItem, id, quantity: 1 }]);
+    const init = async () => {
+      setLoading(true)
+      const savedId = localStorage.getItem("cart_id")
+      let c: any | null = null
+      if (savedId) c = await fetchCart(savedId)
+      if (!c) c = await createFreshCart()
+      setCart(c)
+      setLoading(false)
     }
-  };
+    init()
+  }, [])
 
-  const removeFromCart = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
-  };
+  // ---------- line-item helpers ----------
+  const addToCart = async (variantId: string, qty = 1) => {
+    if (!cart) return
+    const { cart: updated } = await medusa.carts.lineItems.create(cart.id, {
+      variant_id: variantId,
+      quantity: qty,
+    })
+    setCart(updated)
+  }
 
-  const clearCart = () => {
-    setItems([]);
-  };
+  const updateLine = async (lineId: string, qty: number) => {
+    if (!cart) return
+    const { cart: updated } = await medusa.carts.lineItems.update(cart.id, lineId, {
+      quantity: qty,
+    })
+    setCart(updated)
+  }
 
-  return (
-    <CartContext.Provider value={{
-      items,
-      cartCount,
-      addToCart,
-      removeFromCart,
-      clearCart
-    }}>
-      {children}
-    </CartContext.Provider>
-  );
+  const removeLine = async (lineId: string) => {
+    if (!cart) return
+    const { cart: updated } = await medusa.carts.lineItems.delete(cart.id, lineId)
+    setCart(updated)
+  }
+
+  const clearCart = async () => {
+    const fresh = await createFreshCart()
+    setCart(fresh)
+  }
+
+  const items: LineItem[] = cart?.items?.map((li: any) => ({
+    id: li.id,
+    title: li.title,
+    variant_id: li.variant_id,
+    quantity: li.quantity,
+    unit_price: li.unit_price,
+    total: li.unit_price * li.quantity,
+  })) || []
+
+  const cartCount = items.reduce((sum, li) => sum + li.quantity, 0)
+
+  const value: CartContextType = {
+    cart,
+    items,
+    cartCount,
+    addToCart,
+    updateLine,
+    removeLine,
+    clearCart,
+  }
+
+  // Render nothing while the initial cart is loading (prevents flash)
+  if (loading) return null
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }
 
 export function useCart() {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
+  const ctx = useContext(CartContext)
+  if (!ctx) throw new Error("useCart must be used within a CartProvider")
+  return ctx
 }

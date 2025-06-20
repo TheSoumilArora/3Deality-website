@@ -55,8 +55,6 @@ export default function Store() {
         setCategories([...BASE_CATS, ...cats])
       } catch (err) {
         console.error("Failed to load products:", err)
-        setAllProducts([])
-        setFiltered([])
         toast.error("Failed to load products. Please try again later.")
       } finally {
         setLoading(false)
@@ -90,21 +88,18 @@ export default function Store() {
   const getProductPrice = (product: any) => {
     const variant = product.variants?.[0]
     if (!variant) return 0
-
     const cp = variant.calculated_price
     if (cp) {
       let amount = cp.calculated_amount ?? cp.original_amount ?? 0
       if (typeof amount === "string") amount = parseInt(amount, 10)
       return amount
     }
-
-    // fallback – shouldn’t happen with v2 list()
     return 0
   }
 
-  const handleAddToCart = async (product: any) => {
+    const handleAddToCart = async (product: any) => {
     try {
-      // If product has multiple variants, redirect to product page
+      // multiple variants → go to product-detail page
       if (product.variants && product.variants.length > 1) {
         navigate(`/product/${product.id}`)
         return
@@ -116,16 +111,8 @@ export default function Store() {
         return
       }
 
-      const price = getProductPrice(product)
-
-      addToCart({
-        filename: product.title || "Unknown Product",
-        material: variant.title || "Default",
-        infill: 20,
-        layerHeight: "0.2",
-        price: Math.round(price), // already rupees
-      })
-
+      // add **variantId** to Medusa cart (qty = 1)
+      await addToCart(variant.id, 1)
       toast.success("Added to cart!")
     } catch (err) {
       console.error("Failed to add to cart:", err)
