@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Trash2, ShoppingCart } from "lucide-react"
 import { toast } from "sonner"
+import FreeShipBanner from "@/components/FreeShipBanner"
 
 export default function Cart() {
   const { items, cart, removeLine, updateLine, clearCart } = useCart()
@@ -135,7 +136,8 @@ export default function Cart() {
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xl font-semibold">Total:</span>
                 <span className="text-3xl font-bold text-primary">
-                  {format(cartTotal/100)}
+                  {format(cartTotal)}
+                  <FreeShipBanner rupeeSubtotal={cart.subtotal / 100} />
                 </span>
               </div>
 
