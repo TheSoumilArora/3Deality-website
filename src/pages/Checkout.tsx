@@ -46,7 +46,7 @@ export default function Checkout() {
     postal_code: "",
     country_code: "in",
   })
-  const [locked, setLocked] = useState({ city: false, province: false })
+  const [locked, setLocked] = useState({ city: true, province: true })
   const [shipOpts, setShipOpts] = useState<any[]>([])
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
 
@@ -76,7 +76,7 @@ export default function Checkout() {
         setLocked({ city: true, province: true })
       }
     } catch {
-      /* ignore – leave editable */
+      setLocked({ city: false, province: false })  // unlock if lookup failed
     }
   }
 
@@ -86,9 +86,9 @@ export default function Checkout() {
     if (!cart) return
     setBusy(true)
     try {
-      const { landmark, ...core } = addr
+      const { landmark, email, ...core } = addr
       await medusa.carts.update(cart.id, {
-        email: addr.email,
+        email,
         shipping_address: {
           ...core,
           metadata: landmark ? { landmark } : undefined,
@@ -111,8 +111,8 @@ export default function Checkout() {
     setPromoBusy(true)
     const c = code.trim()
     try {
-      await medusa.carts.addDiscount(cart.id, c).catch(() =>
-        medusa.carts.addGiftCard(cart.id, c)
+      await medusa.carts.addPromotion(cart.id, c.trim()).catch(() =>
+        medusa.carts.addGiftCard(cart.id, c.trim())
       )
       toast.success("Code applied")
       window.location.reload() // easiest way to sync totals
