@@ -24,7 +24,7 @@ import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
 export default function Checkout () {
-  const {cart, items, cartCount, clearCart} = useCart()
+  const {cart, items, cartCount, clearCart, refreshCart} = useCart()
   const navigate = useNavigate()
 
   const [busy,       setBusy]   = useState(false)
@@ -86,6 +86,7 @@ export default function Checkout () {
         shipping_address:{...core, metadata:landmark?{landmark}:undefined}
       })
       await fetchOpts()
+      await refreshCart()
       toast.success("Address saved – choose your shipping")
     }catch(err){
       console.error(err)
@@ -98,10 +99,8 @@ export default function Checkout () {
     if(!cart) return
     try{
       await medusa.carts.addShippingMethod(cart.id, {option_id:optId})
-      const {cart:updated}= await medusa.carts.retrieve(cart.id)
-      // Medusa returns paise; it is already in cart.shipping_total
       setSel(optId)
-      setOpt(o=>o)            // no change; needed only to re-render
+      await refreshCart()
       toast.success("Shipping updated")
     }catch(err){
       toast.error("Couldn’t set shipping, try again")
@@ -113,10 +112,9 @@ export default function Checkout () {
     if(!cart || !code.trim()) return
     setPB(true)
     try{
-      await medusa.carts.addPromotions(cart.id,{promo_codes:[code.trim()]})
-      const {cart:updated}= await medusa.carts.retrieve(cart.id)
+      await medusa.carts.addPromotions(cart.id,{promo_codes:[code]})
+      await refreshCart()
       toast.success("Promotion applied")
-      window.location.reload()
     }catch{
       toast.error("Invalid code")
     }finally{ setPB(false) }

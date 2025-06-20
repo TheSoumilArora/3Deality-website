@@ -18,6 +18,8 @@ interface CartContextType {
   updateLine: (lineId: string, qty: number) => Promise<void>
   removeLine: (lineId: string) => Promise<void>
   clearCart: () => Promise<void>
+  refreshCart: () => Promise<void>
+
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -90,6 +92,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart(fresh)
   }
 
+  const refreshCart = async () => {
+  if (!cart) return
+  const { cart: fresh } = await medusa.carts.retrieve(cart.id, {
+    // if you need totals make sure they’re expanded
+    // fields: "subtotal,total,shipping_total,discount_total",
+  })
+  setCart(fresh)
+}
+
   const items: LineItem[] = cart?.items?.map((li: any) => ({
     id: li.id,
     title: li.title,
@@ -109,6 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     updateLine,
     removeLine,
     clearCart,
+    refreshCart,
   }
 
   // Render nothing while the initial cart is loading (prevents flash)
