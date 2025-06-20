@@ -137,7 +137,7 @@ export default function Cart() {
                 <span className="text-xl font-semibold">Total:</span>
                 <span className="text-3xl font-bold text-primary">
                   {format(cartTotal)}
-                  <FreeShipBanner rupeeSubtotal={cart.subtotal / 100} />
+                  <FreeShipBanner rupeeSubtotal={cart.subtotal} />
                 </span>
               </div>
 
