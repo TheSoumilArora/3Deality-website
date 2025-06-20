@@ -55,7 +55,8 @@ export default function Checkout() {
 
   const fetchShipOpts = async () => {
     if (!cart) return
-    const { shipping_options } = await medusa.shippingOptions.listCart(cart.id)
+    const { shipping_options } = await medusa.shippingOptions.list({ cart_id: cart.id, })
+
     setShipOpts(shipping_options)
   }
 
@@ -112,9 +113,10 @@ export default function Checkout() {
     setPromoBusy(true)
     const c = code.trim()
     try {
-      await medusa.carts.addPromotion(cart.id, c.trim()).catch(() =>
-        medusa.carts.addGiftCard(cart.id, c.trim())
-      )
+      await medusa.carts
+    .addDiscount(cart.id, { code: c })
+    .catch(() => medusa.carts.applyGiftCard(cart.id, { code: c }))
+    
       toast.success("Code applied")
       window.location.reload() // easiest way to sync totals
     } catch {
