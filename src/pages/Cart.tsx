@@ -34,8 +34,8 @@ export default function Cart() {
   }
 
   const cartTotal =
-    cart?.total ??
-    items.reduce((sum, li) => sum + (li.total || li.unit_price * li.quantity), 0)
+    cart?.subtotal ?? 0 // Fallback to 0 if cart is undefined
+    items.reduce((s, li) => s + li.unit_price * li.quantity, 0)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -135,7 +135,7 @@ export default function Cart() {
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xl font-semibold">Total:</span>
                 <span className="text-3xl font-bold text-primary">
-                  {format(cartTotal)}
+                  {format(cartTotal/100)}
                 </span>
               </div>
 

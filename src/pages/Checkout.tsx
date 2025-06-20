@@ -58,6 +58,7 @@ export default function Checkout() {
     const { shipping_options } = await medusa.shippingOptions.list({ cart_id: cart.id })
 
     setShipOpts(shipping_options)
+    if (!chosenShip && shipping_options.length) setChosenShip(shipping_options[0])
   }
 
   /* PIN-code autofill */
@@ -248,12 +249,9 @@ export default function Checkout() {
                     />
 
                     <Label>Landmark</Label>
-                    <Textarea
-                      rows={2}
+                    <Input
                       value={addr.landmark}
-                      onChange={(e) =>
-                        setAddr({ ...addr, landmark: e.target.value })
-                      }
+                      onChange={(e) => setAddr({ ...addr, landmark: e.target.value })}
                     />
 
                     <div className="grid grid-cols-3 gap-4">
