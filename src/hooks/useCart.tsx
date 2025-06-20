@@ -79,8 +79,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeLine = async (lineId: string) => {
     if (!cart) return
-    const { cart: updated } = await medusa.carts.lineItems.delete(cart.id, lineId)
-    setCart(updated)
+    await medusa.carts.lineItems.delete(cart.id, lineId)
+    // Always retrieve the authoritative cart after mutation
+    const { cart: refreshed } = await medusa.carts.retrieve(cart.id)
+    setCart(refreshed)
   }
 
   const clearCart = async () => {
