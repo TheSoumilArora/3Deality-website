@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
   Truck,
+  Package,
+  Percent,
   CreditCard,
   ShoppingCart,
-  Loader2,
-  Percent,
+  Loader2
 } from "lucide-react"
 import medusa from "@/lib/medusaClient"
 import { Navbar } from "@/components/Navbar"
@@ -23,12 +24,19 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
+/* helper to keep math in one place */
+const computeTotal = (c: any, extraShip = 0) =>
+  c.subtotal +
+  extraShip -
+  c.discount_total -
+  c.gift_card_total +
+  c.tax_total
+
 export default function Checkout() {
-  const { cart, items, clearCart, cartCount } = useCart()
+  const { cart, items, clearCart } = useCart()
   const navigate = useNavigate()
 
-  /* ───────── component state ───────── */
-  const [step, setStep] = useState<"ship" | "pay">("ship")
+  /* ────────────── state ────────────── */
   const [busy, setBusy] = useState(false)
   const [promoBusy, setPromoBusy] = useState(false)
   const [code, setCode] = useState("")
@@ -47,21 +55,22 @@ export default function Checkout() {
     country_code: "in",
   })
   const [locked, setLocked] = useState({ city: true, province: true })
-  const [shipOpts, setShipOpts] = useState<any[]>([])
-  const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
 
-  /* ───────── helpers ───────── */
+  const [shipOpts, setShipOpts] = useState<any[]>([])
+  const [chosenShip, setChosenShip] = useState<any | null>(null)
+
+  /* ────────────── helpers ────────────── */
   const lineTotal = (li: any) => li.unit_price * li.quantity
 
   const fetchShipOpts = async () => {
     if (!cart) return
-    const { shipping_options } = await medusa.shippingOptions.list({ cart_id: cart.id })
-
+    const { shipping_options } = await medusa.shippingOptions.list({
+      cart_id: cart.id,
+    })
     setShipOpts(shipping_options)
   }
 
-  /* PIN-code autofill */
-  const handlePinBlur = async () => {
+  const pinLookup = async () => {
     if (addr.postal_code.length !== 6) return
     try {
       const r = await fetch(
@@ -75,52 +84,50 @@ export default function Checkout() {
           city: District,
           province: stateCodes[State] || "",
         }))
-        setLocked({ city: true, province: true })
+      } else {
+        setLocked({ city: false, province: false })
       }
     } catch {
-      setLocked({ city: false, province: false })  // unlock if lookup failed
+      setLocked({ city: false, province: false })
     }
   }
 
-  /* Submit address */
+  /* save / update address + load ship options */
   const saveAddress = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart) return
     setBusy(true)
     try {
-      const { landmark, email, ...core } = addr
+      const { landmark, ...core } = addr
       await medusa.carts.update(cart.id, {
-        email,
+        email: addr.email,
         shipping_address: {
           ...core,
           metadata: landmark ? { landmark } : undefined,
         },
       })
       await fetchShipOpts()
-      setStep("pay")
-      toast.success("Address saved")
-    } catch (err: any) {
-      console.error(err)
-      toast.error("Could not save address – server rejected the data")
+      toast.success("Address saved. Pick a shipping method below.")
+    } catch {
+      toast.error("Couldn’t save address – check the fields again.")
     } finally {
       setBusy(false)
     }
   }
 
-  /* Apply promo / gift */
+  /* promo / gift */
   const applyCode = async () => {
     if (!cart || !code.trim()) return
-    setPromoBusy(true)
     const c = code.trim()
+    setPromoBusy(true)
     try {
       await medusa.carts
-            .applyPromotion(cart.id, { code: c.trim() })
-            .catch(() =>
-              medusa.carts.applyGiftCard(cart.id, { code: c })
-            )
+        .applyPromotion(cart.id, { code: c.trim() })
+        .catch(() => medusa.carts.applyGiftCard(cart.id, { code: c.trim() }))
 
+      const { cart: fresh } = await medusa.carts.retrieve(cart.id)
       toast.success("Code applied")
-      window.location.reload() // easiest way to sync totals
+      window.location.reload() // easiest sync
     } catch {
       toast.error("Invalid code")
     } finally {
@@ -128,18 +135,19 @@ export default function Checkout() {
     }
   }
 
-  /* Pay */
+  /* attach shipping, start payment */
   const pay = async () => {
-    if (!cart || !selectedOpt) {
-      toast.error("Please choose a shipping method")
+    if (!cart || !chosenShip) {
+      toast.error("Choose a shipping option first")
       return
     }
     setBusy(true)
     try {
-      await medusa.carts.addShippingMethod(cart.id, { option_id: selectedOpt })
+      await medusa.carts.addShippingMethod(cart.id, {
+        option_id: chosenShip.id,
+      })
       await medusa.carts.createPaymentSessions(cart.id)
       await medusa.carts.setPaymentSession(cart.id, "razorpay")
-      /* TODO: real Razorpay widget here */
       toast.success("Pretend payment succeeded 🙂")
       await medusa.carts.complete(cart.id)
       clearCart()
@@ -151,207 +159,222 @@ export default function Checkout() {
     }
   }
 
-  /* ───────── guard screens ───────── */
+  /* guards */
   if (!cart) return null
-  if (cartCount === 0)
+  if (items.length === 0)
     return (
       <div className="min-h-screen">
         <Navbar />
         <div className="py-32 text-center">
-          <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-          <Button onClick={() => navigate("/store")}>Browse Products</Button>
+          <Package className="mx-auto w-16 h-16 text-muted-foreground mb-6" />
+          <Button onClick={() => navigate("/store")}>Browse products</Button>
         </div>
       </div>
     )
 
-  /* ───────── UI ───────── */
+  /* current shipping price (picked or from cart) */
+  const shipAmount =
+    chosenShip?.amount ?? (cart.shipping_total ? cart.shipping_total : 0)
+  const calcTotal = computeTotal(cart, shipAmount)
+
+  /* ────────────── UI ────────────── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Navbar />
-
       <div className="container mx-auto px-4 py-10">
-        <Button variant="ghost" className="mb-6" onClick={() => navigate("/cart")}>
-          <ArrowLeft className="w-4 h-4 mr-1" />
+        <Button variant="ghost" onClick={() => navigate("/cart")} className="mb-6">
+          <ArrowLeft className="h-4 w-4 mr-1" />
           Cart
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* LEFT column */}
+          {/* LEFT column – everything stacked */}
           <div className="lg:col-span-2 space-y-8">
-            {/* SHIPPING STEP */}
-            {step === "ship" && (
+            {/* ── Address ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Shipping address
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={saveAddress}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>First name *</Label>
+                      <Input
+                        required
+                        value={addr.first_name}
+                        onChange={(e) =>
+                          setAddr({ ...addr, first_name: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Last name *</Label>
+                      <Input
+                        required
+                        value={addr.last_name}
+                        onChange={(e) =>
+                          setAddr({ ...addr, last_name: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <Label>Email *</Label>
+                  <Input
+                    required
+                    type="email"
+                    value={addr.email}
+                    onChange={(e) =>
+                      setAddr({ ...addr, email: e.target.value })
+                    }
+                  />
+
+                  <Label>Phone *</Label>
+                  <Input
+                    required
+                    value={addr.phone}
+                    onChange={(e) =>
+                      setAddr({ ...addr, phone: e.target.value })
+                    }
+                  />
+
+                  <Label>Address line 1 *</Label>
+                  <Input
+                    required
+                    value={addr.address_1}
+                    onChange={(e) =>
+                      setAddr({ ...addr, address_1: e.target.value })
+                    }
+                  />
+
+                  <Label>Address line 2</Label>
+                  <Input
+                    value={addr.address_2}
+                    onChange={(e) =>
+                      setAddr({ ...addr, address_2: e.target.value })
+                    }
+                  />
+
+                  <Label>Landmark</Label>
+                  <Textarea
+                    rows={2}
+                    value={addr.landmark}
+                    onChange={(e) =>
+                      setAddr({ ...addr, landmark: e.target.value })
+                    }
+                  />
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>City</Label>
+                      <Input
+                        readOnly={locked.city}
+                        className={locked.city ? "bg-muted" : ""}
+                        value={addr.city}
+                        onChange={(e) =>
+                          setAddr({ ...addr, city: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>State (code)</Label>
+                      <Input
+                        readOnly={locked.province}
+                        className={locked.province ? "bg-muted" : ""}
+                        value={addr.province}
+                        onChange={(e) =>
+                          setAddr({
+                            ...addr,
+                            province: e.target.value.toUpperCase(),
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Pincode *</Label>
+                      <Input
+                        required
+                        value={addr.postal_code}
+                        onChange={(e) =>
+                          setAddr({
+                            ...addr,
+                            postal_code: e.target.value.replace(/\D/g, ""),
+                          })
+                        }
+                        onBlur={pinLookup}
+                      />
+                    </div>
+                  </div>
+
+                  <Button disabled={busy} className="w-full mt-6">
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Save & continue"
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* ── Shipping method & promo – visible once options loaded ── */}
+            {shipOpts.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Truck className="w-4 h-4" /> Shipping
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4" onSubmit={saveAddress}>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>First name *</Label>
-                        <Input
-                          required
-                          value={addr.first_name}
-                          onChange={(e) =>
-                            setAddr({ ...addr, first_name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Last name *</Label>
-                        <Input
-                          required
-                          value={addr.last_name}
-                          onChange={(e) =>
-                            setAddr({ ...addr, last_name: e.target.value })
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <Label>Email *</Label>
-                    <Input
-                      required
-                      type="email"
-                      value={addr.email}
-                      onChange={(e) =>
-                        setAddr({ ...addr, email: e.target.value })
-                      }
-                    />
-
-                    <Label>Phone *</Label>
-                    <Input
-                      required
-                      value={addr.phone}
-                      onChange={(e) =>
-                        setAddr({ ...addr, phone: e.target.value })
-                      }
-                    />
-
-                    <Label>Address line 1 *</Label>
-                    <Input
-                      required
-                      value={addr.address_1}
-                      onChange={(e) =>
-                        setAddr({ ...addr, address_1: e.target.value })
-                      }
-                    />
-
-                    <Label>Address line 2</Label>
-                    <Input
-                      value={addr.address_2}
-                      onChange={(e) =>
-                        setAddr({ ...addr, address_2: e.target.value })
-                      }
-                    />
-
-                    <Label>Landmark</Label>
-                    <Textarea
-                      rows={2}
-                      value={addr.landmark}
-                      onChange={(e) =>
-                        setAddr({ ...addr, landmark: e.target.value })
-                      }
-                    />
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>City</Label>
-                        <Input
-                          value={addr.city}
-                          readOnly={locked.city}
-                          className={locked.city ? "bg-muted" : ""}
-                          onChange={(e) =>
-                            setAddr({ ...addr, city: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>State (code)</Label>
-                        <Input
-                          value={addr.province}
-                          readOnly={locked.province}
-                          className={locked.province ? "bg-muted" : ""}
-                          onChange={(e) =>
-                            setAddr({
-                              ...addr,
-                              province: e.target.value.toUpperCase(),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Pincode *</Label>
-                        <Input
-                          required
-                          value={addr.postal_code}
-                          onChange={(e) =>
-                            setAddr({
-                              ...addr,
-                              postal_code: e.target.value.replace(/\D/g, ""),
-                            })
-                          }
-                          onBlur={handlePinBlur}
-                        />
-                      </div>
-                    </div>
-
-                    <Button disabled={busy} className="w-full mt-6">
-                      {busy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Continue"
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* PAYMENT STEP */}
-            {step === "pay" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" /> Payment & Shipping
+                    <Package className="h-4 w-4" />
+                    Shipping method
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* shipping */}
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Shipping method</h4>
-                    {shipOpts.map((opt) => (
-                      <label
-                        key={opt.id}
-                        className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer ${
-                          selectedOpt === opt.id
-                            ? "border-primary bg-primary/5"
-                            : "border-muted hover:border-primary/50"
-                        }`}
-                      >
-                        <span>
-                          {opt.name} – {formatINR(opt.amount)}
-                        </span>
-                        <input
-                          type="radio"
-                          checked={selectedOpt === opt.id}
-                          onChange={() => setSelectedOpt(opt.id)}
-                        />
-                      </label>
-                    ))}
+                  {shipOpts.map((o) => (
+                    <label
+                      key={o.id}
+                      className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer ${
+                        chosenShip?.id === o.id
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      }`}
+                    >
+                      <span>
+                        {o.name} – {formatINR(o.amount)}
+                      </span>
+                      <input
+                        type="radio"
+                        checked={chosenShip?.id === o.id}
+                        onChange={() => setChosenShip(o)}
+                      />
+                    </label>
+                  ))}
+
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Promo / Gift-card code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                    />
+                    <Button onClick={applyCode} disabled={promoBusy}>
+                      {promoBusy ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Percent className="w-4 h-4" />
+                      )}
+                    </Button>
                   </div>
 
                   <Button
+                    onClick={pay}
                     disabled={busy}
                     className="w-full bg-gradient-to-r from-primary to-primary/80"
-                    onClick={pay}
                   >
                     {busy ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      `Pay ${formatINR(cart.total || 0)} with Razorpay`
+                      `Pay ${formatINR(calcTotal)} with Razorpay`
                     )}
                   </Button>
                 </CardContent>
@@ -359,7 +382,7 @@ export default function Checkout() {
             )}
           </div>
 
-          {/* RIGHT column: Order summary + promo (always visible) */}
+          {/* RIGHT column – order summary */}
           <div>
             <Card className="sticky top-24">
               <CardHeader>
@@ -378,46 +401,32 @@ export default function Checkout() {
                   </div>
                 ))}
 
-                <div className="flex gap-2 mt-4">
-                  <Input
-                    placeholder="Promo / Gift-card"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                  <Button onClick={applyCode} disabled={promoBusy}>
-                    {promoBusy ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Percent className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-
-                <Separator className="my-4" />
+                <Separator />
 
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>{formatINR(cart.subtotal || 0)}</span>
+                    <span>{formatINR(cart.subtotal)}</span>
                   </div>
+
                   {cart.discount_total > 0 && (
                     <div className="flex justify-between">
                       <span>Discount</span>
                       <span>-{formatINR(cart.discount_total)}</span>
                     </div>
                   )}
+
                   {cart.gift_card_total > 0 && (
                     <div className="flex justify-between">
-                      <span>Gift Card</span>
+                      <span>Gift card</span>
                       <span>-{formatINR(cart.gift_card_total)}</span>
                     </div>
                   )}
+
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>
-                      {cart.shipping_total
-                        ? formatINR(cart.shipping_total)
-                        : "—"}
+                      {shipAmount ? formatINR(shipAmount) : "—"}
                     </span>
                   </div>
                 </div>
@@ -426,12 +435,10 @@ export default function Checkout() {
 
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-primary">
-                    {formatINR(cart.total || 0)}
-                  </span>
+                  <span className="text-primary">{formatINR(calcTotal)}</span>
                 </div>
 
-                {cart.shipping_total === 0 && (
+                {shipAmount === 0 && (
                   <Badge variant="secondary" className="w-full justify-center">
                     Free shipping applied!
                   </Badge>
@@ -441,7 +448,6 @@ export default function Checkout() {
           </div>
         </div>
       </div>
-
       <Footer />
     </div>
   )
