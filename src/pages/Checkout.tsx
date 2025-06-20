@@ -21,20 +21,13 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
-
-/* utils */
-const inr = (v = 0) =>
-  `₹${v.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
-const paiseToRupee = (p = 0) => inr(p / 100)
+import { formatINR } from "@/lib/money"
 
 export default function Checkout() {
   const { cart, items, clearCart, cartCount } = useCart()
   const navigate = useNavigate()
 
-  /* --------------------------------------- state */
+  /* ───────── component state ───────── */
   const [step, setStep] = useState<"ship" | "pay">("ship")
   const [busy, setBusy] = useState(false)
   const [promoBusy, setPromoBusy] = useState(false)
@@ -53,48 +46,42 @@ export default function Checkout() {
     postal_code: "",
     country_code: "in",
   })
-
-  const [autoLock, setAutoLock] = useState({ city: false, province: false })
-  const [options, setOptions] = useState<any[]>([])
+  const [locked, setLocked] = useState({ city: false, province: false })
+  const [shipOpts, setShipOpts] = useState<any[]>([])
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null)
 
-  /* --------------------------------------- helpers */
-  const refreshCart = async () => {
-    if (!cart) return
-    const { cart: fresh } = await medusa.carts.retrieve(cart.id)
-    window.location.reload() // simplest way to sync totals across contexts
-    return fresh
-  }
+  /* ───────── helpers ───────── */
+  const lineTotal = (li: any) => li.unit_price * li.quantity
 
-  const fetchOptions = async () => {
+  const fetchShipOpts = async () => {
     if (!cart) return
     const { shipping_options } = await medusa.shippingOptions.listCart(cart.id)
-    setOptions(shipping_options)
+    setShipOpts(shipping_options)
   }
 
-  /* PIN → autofill District/State */
+  /* PIN-code autofill */
   const handlePinBlur = async () => {
     if (addr.postal_code.length !== 6) return
     try {
-      const res = await fetch(
+      const r = await fetch(
         `https://api.postalpincode.in/pincode/${addr.postal_code}`
-      ).then((r) => r.json())
-      if (res[0].Status === "Success") {
-        const { District, State } = res[0].PostOffice[0]
-        setAddr((p) => ({
-          ...p,
+      ).then((x) => x.json())
+      if (r[0].Status === "Success") {
+        const { District, State } = r[0].PostOffice[0]
+        setAddr((a) => ({
+          ...a,
           city: District,
           province: stateCodes[State] || "",
         }))
-        setAutoLock({ city: true, province: true })
+        setLocked({ city: true, province: true })
       }
     } catch {
-      /* fail silently */
+      /* ignore – leave editable */
     }
   }
 
-  /* submit address */
-  const handleShip = async (e: React.FormEvent) => {
+  /* Submit address */
+  const saveAddress = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart) return
     setBusy(true)
@@ -107,18 +94,18 @@ export default function Checkout() {
           metadata: landmark ? { landmark } : undefined,
         },
       })
-      await fetchOptions()
+      await fetchShipOpts()
       setStep("pay")
       toast.success("Address saved")
-
-    } catch {
-      toast.error("Could not save address – check required fields")
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Could not save address – server rejected the data")
     } finally {
       setBusy(false)
     }
   }
 
-  /* promo / gift */
+  /* Apply promo / gift */
   const applyCode = async () => {
     if (!cart || !code.trim()) return
     setPromoBusy(true)
@@ -128,7 +115,7 @@ export default function Checkout() {
         medusa.carts.addGiftCard(cart.id, c)
       )
       toast.success("Code applied")
-      await refreshCart()
+      window.location.reload() // easiest way to sync totals
     } catch {
       toast.error("Invalid code")
     } finally {
@@ -136,10 +123,10 @@ export default function Checkout() {
     }
   }
 
-  /* shipping → pay */
+  /* Pay */
   const pay = async () => {
     if (!cart || !selectedOpt) {
-      toast.error("Choose a shipping method")
+      toast.error("Please choose a shipping method")
       return
     }
     setBusy(true)
@@ -147,53 +134,55 @@ export default function Checkout() {
       await medusa.carts.addShippingMethod(cart.id, { option_id: selectedOpt })
       await medusa.carts.createPaymentSessions(cart.id)
       await medusa.carts.setPaymentSession(cart.id, "razorpay")
-
-      /* REAL widget here */
-      toast.success("Pretend Razorpay succeeded 🙂")
+      /* TODO: real Razorpay widget here */
+      toast.success("Pretend payment succeeded 🙂")
       await medusa.carts.complete(cart.id)
-
       clearCart()
       navigate("/order-confirmation")
-    } catch (e) {
+    } catch {
       toast.error("Payment failed")
     } finally {
       setBusy(false)
     }
   }
 
-  /* guards */
+  /* ───────── guard screens ───────── */
   if (!cart) return null
   if (cartCount === 0)
     return (
       <div className="min-h-screen">
         <Navbar />
         <div className="py-32 text-center">
-          <ShoppingCart className="mx-auto w-16 h-16 text-muted-foreground mb-6" />
+          <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <Button onClick={() => navigate("/store")}>Browse Products</Button>
         </div>
       </div>
     )
 
+  /* ───────── UI ───────── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Navbar />
+
       <div className="container mx-auto px-4 py-10">
-        <Button variant="ghost" onClick={() => navigate("/cart")} className="mb-6">
-          <ArrowLeft className="h-4 w-4 mr-1" /> Cart
+        <Button variant="ghost" className="mb-6" onClick={() => navigate("/cart")}>
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Cart
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* ── left ─────────────────────────── */}
+          {/* LEFT column */}
           <div className="lg:col-span-2 space-y-8">
+            {/* SHIPPING STEP */}
             {step === "ship" && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Truck className="h-4 w-4" /> Shipping
+                    <Truck className="w-4 h-4" /> Shipping
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form className="space-y-4" onSubmit={handleShip}>
+                  <form className="space-y-4" onSubmit={saveAddress}>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>First name *</Label>
@@ -267,8 +256,8 @@ export default function Checkout() {
                         <Label>City</Label>
                         <Input
                           value={addr.city}
-                          readOnly={autoLock.city}
-                          className={autoLock.city ? "bg-muted" : ""}
+                          readOnly={locked.city}
+                          className={locked.city ? "bg-muted" : ""}
                           onChange={(e) =>
                             setAddr({ ...addr, city: e.target.value })
                           }
@@ -278,8 +267,8 @@ export default function Checkout() {
                         <Label>State (code)</Label>
                         <Input
                           value={addr.province}
-                          readOnly={autoLock.province}
-                          className={autoLock.province ? "bg-muted" : ""}
+                          readOnly={locked.province}
+                          className={locked.province ? "bg-muted" : ""}
                           onChange={(e) =>
                             setAddr({
                               ...addr,
@@ -316,54 +305,34 @@ export default function Checkout() {
               </Card>
             )}
 
+            {/* PAYMENT STEP */}
             {step === "pay" && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" /> Payment & Shipping
+                    <CreditCard className="w-4 h-4" /> Payment & Shipping
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* promo */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1">
-                      <Percent className="w-4 h-4" /> Promo / Gift Code
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        placeholder="ENTER CODE"
-                      />
-                      <Button onClick={applyCode} disabled={promoBusy}>
-                        {promoBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Apply"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* shipping opts */}
+                  {/* shipping */}
                   <div className="space-y-2">
                     <h4 className="font-medium">Shipping method</h4>
-                    {options.map((o) => (
+                    {shipOpts.map((opt) => (
                       <label
-                        key={o.id}
+                        key={opt.id}
                         className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer ${
-                          selectedOpt === o.id
+                          selectedOpt === opt.id
                             ? "border-primary bg-primary/5"
                             : "border-muted hover:border-primary/50"
                         }`}
                       >
                         <span>
-                          {o.name} – {paiseToRupee(o.amount)}
+                          {opt.name} – {formatINR(opt.amount)}
                         </span>
                         <input
                           type="radio"
-                          checked={selectedOpt === o.id}
-                          onChange={() => setSelectedOpt(o.id)}
+                          checked={selectedOpt === opt.id}
+                          onChange={() => setSelectedOpt(opt.id)}
                         />
                       </label>
                     ))}
@@ -375,9 +344,9 @@ export default function Checkout() {
                     onClick={pay}
                   >
                     {busy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      `Pay ${paiseToRupee(cart.total || 0)} with Razorpay`
+                      `Pay ${formatINR(cart.total || 0)} with Razorpay`
                     )}
                   </Button>
                 </CardContent>
@@ -385,7 +354,7 @@ export default function Checkout() {
             )}
           </div>
 
-          {/* ── right summary ───────────────────── */}
+          {/* RIGHT column: Order summary + promo (always visible) */}
           <div>
             <Card className="sticky top-24">
               <CardHeader>
@@ -400,34 +369,49 @@ export default function Checkout() {
                     <span>
                       {li.title} × {li.quantity}
                     </span>
-                    <span>{paiseToRupee(li.unit_price * li.quantity)}</span>
+                    <span>{formatINR(lineTotal(li))}</span>
                   </div>
                 ))}
 
-                <Separator />
+                <div className="flex gap-2 mt-4">
+                  <Input
+                    placeholder="Promo / Gift-card"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                  <Button onClick={applyCode} disabled={promoBusy}>
+                    {promoBusy ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Percent className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+
+                <Separator className="my-4" />
 
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>{paiseToRupee(cart.subtotal || 0)}</span>
+                    <span>{formatINR(cart.subtotal || 0)}</span>
                   </div>
                   {cart.discount_total > 0 && (
                     <div className="flex justify-between">
                       <span>Discount</span>
-                      <span>-{paiseToRupee(cart.discount_total)}</span>
+                      <span>-{formatINR(cart.discount_total)}</span>
                     </div>
                   )}
                   {cart.gift_card_total > 0 && (
                     <div className="flex justify-between">
                       <span>Gift Card</span>
-                      <span>-{paiseToRupee(cart.gift_card_total)}</span>
+                      <span>-{formatINR(cart.gift_card_total)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>
                       {cart.shipping_total
-                        ? paiseToRupee(cart.shipping_total)
+                        ? formatINR(cart.shipping_total)
                         : "—"}
                     </span>
                   </div>
@@ -438,7 +422,7 @@ export default function Checkout() {
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span className="text-primary">
-                    {paiseToRupee(cart.total || 0)}
+                    {formatINR(cart.total || 0)}
                   </span>
                 </div>
 
@@ -452,6 +436,7 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+
       <Footer />
     </div>
   )

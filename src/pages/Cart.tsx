@@ -150,6 +150,10 @@ export default function Cart() {
                 >
                   Proceed to Checkout
                 </Button>
+                <p className="text-sm text-muted-foreground mt-4 text-center">
+                  Shipping fees & promo codes are applied on the next page.
+                </p>
+
               </div>
             </motion.div>
           </div>
