@@ -64,7 +64,7 @@ export default function Checkout() {
         setShip((p) => ({
           ...p,
           city: District,
-          province: stateCodes[State] || "",
+          province: State || "",
         }))
       }
     } catch {
@@ -226,7 +226,7 @@ export default function Checkout() {
                         />
                       </div>
                       <div>
-                        <Label>State (code)</Label>
+                        <Label>State</Label>
                         <Input
                           required
                           value={ship.province}
