@@ -67,6 +67,7 @@ export default function Checkout() {
         `https://api.postalpincode.in/pincode/${addr.postal_code}`
       ).then((x) => x.json())
       if (r[0].Status === "Success") {
+        setLocked({ city: false, province: false })  // unlock if lookup failed
         const { District, State } = r[0].PostOffice[0]
         setAddr((a) => ({
           ...a,
