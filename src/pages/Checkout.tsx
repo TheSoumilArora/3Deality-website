@@ -116,6 +116,7 @@ export default function Checkout() {
       await medusa.carts
             .applyPromotion(cart.id, { code: c.trim() })
             .catch(() =>
+              medusa.carts.applyGiftCard(cart.id, { code: c })
             )
 
       toast.success("Code applied")
