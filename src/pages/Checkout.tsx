@@ -254,6 +254,7 @@ export default function Checkout () {
 
         <div>
         {/* ---------------- right column – summary */}
+        <div className="space-y-8">
         <Card className="sticky top-24">
           <CardHeader>
             <CardTitle>Order Summary</CardTitle>
@@ -331,7 +332,7 @@ export default function Checkout () {
           </Card>
         )}
         </div>
-
+      </div>
       </div>
     </div>
     <Footer/>
