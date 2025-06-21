@@ -314,7 +314,7 @@ export default function Checkout () {
         <Card>
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
-            <Truck className="h-4 w-4"/> Payment
+            <CreditCard className="h-4 w-4"/> Payment
           </CardTitle>
           </CardHeader>
           <CardContent>
