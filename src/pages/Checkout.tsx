@@ -111,15 +111,15 @@ export default function Checkout () {
   const applyCode = async()=>{
     if(!cart || !code.trim()) return
     setPB(true)
-    try{
-      await medusa.carts.removePromotions(cart.id)
-      await medusa.carts.addPromotions(cart.id,{ promo_codes:[code.trim()] })
+    try {
+      await medusa.carts.applyPromotion(cart.id, { code: code.trim() })
       await refreshCart()
       toast.success("Promotion applied")
-    }catch{
+    } catch {
       toast.error("Invalid code")
-    }finally{ setPB(false) }
-  }
+    } finally {
+      setPB(false)
+    }  }
 
   /* pay – Razorpay placeholder ---------------------------------------- */
   const pay = async()=>{
