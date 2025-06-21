@@ -108,18 +108,21 @@ export default function Checkout () {
   }
 
   /* promotions --------------------------------------------------------- */
-  const applyCode = async()=>{
-    if(!cart || !code.trim()) return
+  const applyCode = async () => {
+    if (!cart || !code.trim()) return
     setPB(true)
     try {
-      await medusa.carts.applyPromotion(cart.id, { code: code.trim() })
-      await refreshCart()
+      await medusa.client.post(`/store/carts/${cart.id}/promotions`, {
+        promo_codes: [code.trim()]
+      })
+      await refreshCart()          // pulls the new totals + promotions[]
       toast.success("Promotion applied")
     } catch {
       toast.error("Invalid code")
     } finally {
       setPB(false)
-    }  }
+    }
+  }
 
   /* pay – Razorpay placeholder ---------------------------------------- */
   const pay = async()=>{
@@ -302,16 +305,17 @@ export default function Checkout () {
               </Badge>
             )}
           </CardContent>
+                          {/* pay ---------------------------------------------------------- */}
+          {selected && (
+            <Button onClick={pay} disabled={busy}
+              className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
+              {busy
+                ? <Loader2 className="h-4 w-4 animate-spin"/>
+                : `Pay ${formatINR(calcTotal)} with Razorpay`}
+            </Button>
+          )}
         </Card>
-                {/* pay ---------------------------------------------------------- */}
-        {selected && (
-          <Button onClick={pay} disabled={busy}
-            className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
-            {busy
-              ? <Loader2 className="h-4 w-4 animate-spin"/>
-              : `Pay ${formatINR(calcTotal)} with Razorpay`}
-          </Button>
-        )}
+
       </div>
     </div>
     <Footer/>
