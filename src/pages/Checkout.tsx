@@ -244,15 +244,6 @@ export default function Checkout () {
                 </div>
               )}
 
-              {/* pay ---------------------------------------------------------- */}
-              {selected && (
-                <Button onClick={pay} disabled={busy}
-                  className="w-full mt-6 bg-gradient-to-r from-primary to-primary/80">
-                  {busy
-                    ? <Loader2 className="h-4 w-4 animate-spin"/>
-                    : `Pay ${formatINR(calcTotal)} with Razorpay`}
-                </Button>
-              )}
             </CardContent>
           </Card>
         </div>
@@ -312,6 +303,15 @@ export default function Checkout () {
             )}
           </CardContent>
         </Card>
+                {/* pay ---------------------------------------------------------- */}
+        {selected && (
+          <Button onClick={pay} disabled={busy}
+            className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
+            {busy
+              ? <Loader2 className="h-4 w-4 animate-spin"/>
+              : `Pay ${formatINR(calcTotal)} with Razorpay`}
+          </Button>
+        )}
       </div>
     </div>
     <Footer/>
