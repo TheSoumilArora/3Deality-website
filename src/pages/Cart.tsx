@@ -35,8 +35,9 @@ export default function Cart() {
   }
 
   const cartTotal =
-    cart?.subtotal ?? 0 // Fallback to 0 if cart is undefined
-    items.reduce((s, li) => s + li.unit_price * li.quantity, 0)
+    cart?.subtotal !== undefined
+      ? cart.subtotal
+      :items.reduce((s, li) => s + li.unit_price * li.quantity, 0)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">

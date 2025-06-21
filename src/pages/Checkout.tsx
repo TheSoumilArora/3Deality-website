@@ -112,7 +112,8 @@ export default function Checkout () {
     if(!cart || !code.trim()) return
     setPB(true)
     try{
-      await medusa.carts.addPromotions(cart.id,{promo_codes:[code]})
+      await medusa.carts.removePromotions(cart.id)
+      await medusa.carts.addPromotions(cart.id,{ promo_codes:[code.trim()] })
       await refreshCart()
       toast.success("Promotion applied")
     }catch{
