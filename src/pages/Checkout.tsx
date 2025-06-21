@@ -177,7 +177,7 @@ export default function Checkout () {
         },
         handler: async (respone: any) => {
           // 5) capture & complete
-          await medusa.carts.capturePaymentSession(cart.id, {data: respone,})
+          await medusa.carts.createPaymentSessionse(cart.id, {data: respone,})
           await medusa.carts.complete(cart.id)
           clearCart()
           navigate("/order-confirmation")
