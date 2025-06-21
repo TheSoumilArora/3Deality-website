@@ -308,26 +308,27 @@ export default function Checkout () {
             )}
           </CardContent>
         </Card>
-        </div>
-
-        <div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex gap-2 items-center">
-            <CreditCard className="h-4 w-4"/> Payment
-          </CardTitle>
-          </CardHeader>
-          <CardContent>
-          {selected && (
-          <Button onClick={pay} disabled={busy}
-            className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
-            {busy
-              ? <Loader2 className="h-4 w-4 animate-spin"/>
-              : `Pay ${formatINR(calcTotal)} with Razorpay`}
-          </Button>
-          )}
-          </CardContent>
-        </Card>
+        {/* PAYMENT */}
+        {step === "pay" && (
+          <Card className="mt-6 sticky top-24">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4" /> Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={pay}
+                disabled={busy}
+                className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
+              >
+                {busy
+                  ? <Loader2 className="w-4 h-4 animate-spin"/>
+                  : `Pay ${formatINR(cart.total || 0)} with Razorpay`}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         </div>
 
       </div>
