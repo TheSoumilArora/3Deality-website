@@ -45,8 +45,8 @@ export default function Checkout () {
   const selectedCost  = options.find(o=>o.id===selected)?.amount ?? 0
 
   /* helpers ------------------------------------------------------------ */
-  const lineTotal = (li:any)=> li.unit_price*li.quantity
-  const cartSubtotal = cart?.subtotal ?? items.reduce((s,li)=>s+lineTotal(li),0)
+  const lineTotal = (li:any) => li.unit_price * li.quantity
+  const cartSubtotal = items.reduce((s,li) => s + lineTotal(li),0)
   const cartDiscount = (cart?.discount_total ?? 0) + (cart?.gift_card_total ?? 0)
   const calcTotal    = cartSubtotal + selectedCost - cartDiscount                 // GST is not collected yet
 
@@ -282,18 +282,26 @@ export default function Checkout () {
             <Separator className="my-4"/>
 
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatINR(cartSubtotal)}</span></div>
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{formatINR(cartSubtotal)}</span>
+                </div>
               {cartDiscount>0 && (
-                <div className="flex justify-between"><span>Discount</span><span>-{formatINR(cartDiscount)}</span></div>
+                <div className="flex justify-between">
+                  <span>Discount</span>
+                  <span>-{formatINR(cartDiscount)}</span>
+                  </div>
               )}
               <div className="flex justify-between"><span>Shipping</span>
-                <span>{selected ? formatINR(selectedCost) : "—"}</span></div>
+                <span>{selected ? formatINR(selectedCost) : "—"}</span>
+                </div>
             </div>
 
             <Separator/>
 
             <div className="flex justify-between font-bold text-lg">
-              <span>Total</span><span className="text-primary">{formatINR(calcTotal)}</span>
+              <span>Total</span>
+              <span className="text-primary">{formatINR(calcTotal)}</span>
             </div>
 
             {selectedCost===0 && selected && (
