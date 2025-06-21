@@ -251,6 +251,8 @@ export default function Checkout () {
           </Card>
         </div>
 
+
+        <div>
         {/* ---------------- right column – summary */}
         <Card className="sticky top-24">
           <CardHeader>
@@ -306,7 +308,9 @@ export default function Checkout () {
             )}
           </CardContent>
         </Card>
+        </div>
 
+        <div>
         <Card>
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
@@ -324,6 +328,7 @@ export default function Checkout () {
           )}
           </CardContent>
         </Card>
+        </div>
 
       </div>
     </div>
