@@ -127,22 +127,71 @@ export default function Checkout () {
   }
 
   /* pay – Razorpay placeholder ---------------------------------------- */
-  const pay = async()=>{
+  const pay = async() => {
     if(!cart || !selected){
       toast.error("Select a shipping method first")
       return
     }
     setBusy(true)
-    try{
+    try {
+      // 1) create & select the Razorpay session
       await medusa.carts.createPaymentSessions(cart.id)
-      await medusa.carts.setPaymentSession(cart.id,"razorpay")
-      /* TODO: open Razorpay widget & on success: */
-      await medusa.carts.complete(cart.id)
-      clearCart()
-      navigate("/order-confirmation")
-    }catch(err){
-      console.error(err); toast.error("Payment failed")
-    }finally{ setBusy(false) }
+      await medusa.carts.setPaymentSession(cart.id, "razorpay")
+
+      // 2) fetch the full cart so we can grab the session data
+      const { cart: full } = await medusa.carts.retrieve(cart.id, {
+        expand: ["payment_sessions"],
+      })
+
+      const rzSess = full.payment_sessions?.find(
+        (s) => s.provider_id === "razorpay"
+      )
+      if (!rzSess?.data) {
+        throw new Error("No Razorpay session returned")
+      }
+
+      // 3) dynamically load the Razorpay script (only once)
+      if (!window.Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const scr = document.createElement("script")
+          scr.src = "https://checkout.razorpay.com/v1/checkout.js"
+          scr.onload = () => resolve()
+          scr.onerror = () => reject(new Error("Razorpay SDK load failed"))
+          document.head.appendChild(scr)
+        })
+      }
+
+      // 4) open the widget
+      const options = {
+        key: rzSess.data.key_id,             // your key
+        order_id: rzSess.data.order_id,      // created by Medusa plugin
+        amount: rzSess.amount,               // in paise if plugin sets it that way
+        currency: full.currency_code,
+        name: "3Deality",
+        description: "Your order",
+        handler: async (resp: any) => {
+          // capture & complete
+          await medusa.carts.capturePaymentSession(cart.id, {
+            data: resp,
+          })
+          await medusa.carts.complete(cart.id)
+          clearCart()
+          navigate("/order-confirmation")
+        },
+        prefill: {
+          name: `${addr.first_name} ${addr.last_name}`,
+          email: addr.email,
+          contact: addr.phone,
+        },
+      }
+
+      new window.Razorpay(options).open()
+    } catch (err) {
+      console.error(err)
+      toast.error("Payment failed")
+    } finally {
+      setBusy(false)
+    }
   }
 
   /* ---------------------------------------------------------------- guards */
