@@ -34,10 +34,11 @@ export default function Cart() {
     }
   }
 
-  const cartTotal =
-    cart?.subtotal !== undefined
-      ? cart.subtotal
-      :items.reduce((s, li) => s + li.unit_price * li.quantity, 0)
+  const cartItemSubtotal =
+    cart?.item_subtotal !== undefined
+      ? cart.item_subtotal
+      : items.reduce((s, li) => s + li.unit_price * li.quantity, 0)
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -137,8 +138,8 @@ export default function Cart() {
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xl font-semibold">Total:</span>
                 <span className="text-3xl font-bold text-primary">
-                  {format(cartTotal)}
-                  <FreeShipBanner rupeeSubtotal={cart.subtotal} />
+                  {format(cartItemSubtotal)}
+                  <FreeShipBanner rupeeSubtotal={cartItemSubtotal} />
                 </span>
               </div>
 
