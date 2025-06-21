@@ -102,6 +102,7 @@ export default function Checkout () {
       await medusa.carts.addShippingMethod(cart.id, {option_id:optId})
       setSel(optId)
       await refreshCart()
+      setStep("pay")
       toast.success("Shipping updated")
     }catch(err){
       toast.error("Couldn’t set shipping, try again")
@@ -252,87 +253,88 @@ export default function Checkout () {
           </Card>
         </div>
 
-        <div>
+        <div className="lg:col-span-1">
         {/* ---------------- right column – summary */}
-        <div className="space-y-8">
-        <Card className="sticky top-24">
-          <CardHeader>
-            <CardTitle>Order Summary</CardTitle>
-            </CardHeader>
-          <CardContent className="space-y-4">
+          <div className="space-y-8">
 
-            {items.map(li=>(
-              <div key={li.id} className="flex justify-between text-sm">
-                <span>{li.title} × {li.quantity}</span>
-                <span>{formatINR(lineTotal(li))}</span>
-              </div>
-            ))}
+            <Card className="sticky top-24">
+              <CardHeader>
+                <CardTitle>Order Summary</CardTitle>
+                </CardHeader>
+              <CardContent className="space-y-4">
 
-            {/* promo ----------------------------------------------------- */}
-            <div className="flex gap-2 mt-4">
-              <Input placeholder="Promo code"
-                     value={code} onChange={e=>setCode(e.target.value)}/>
-              <Button onClick={applyCode} disabled={promoBusy}>
-                {promoBusy? <Loader2 className="h-4 w-4 animate-spin"/>:<Percent className="h-4 w-4"/>}
-              </Button>
-            </div>
-
-            <Separator className="my-4"/>
-
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>{formatINR(cartSubtotal)}</span>
-                </div>
-              {cartDiscount>0 && (
-                <div className="flex justify-between">
-                  <span>Discount</span>
-                  <span>-{formatINR(cartDiscount)}</span>
+                {items.map(li=>(
+                  <div key={li.id} className="flex justify-between text-sm">
+                    <span>{li.title} × {li.quantity}</span>
+                    <span>{formatINR(lineTotal(li))}</span>
                   </div>
-              )}
-              <div className="flex justify-between"><span>Shipping</span>
-                <span>{selected ? formatINR(selectedCost) : "—"}</span>
+                ))}
+
+                {/* promo ----------------------------------------------------- */}
+                <div className="flex gap-2 mt-4">
+                  <Input placeholder="Promo code"
+                         value={code} onChange={e=>setCode(e.target.value)}/>
+                  <Button onClick={applyCode} disabled={promoBusy}>
+                    {promoBusy? <Loader2 className="h-4 w-4 animate-spin"/>:<Percent className="h-4 w-4"/>}
+                  </Button>
                 </div>
-            </div>
 
-            <Separator/>
+                <Separator className="my-4"/>
 
-            <div className="flex justify-between font-bold text-lg">
-              <span>Total</span>
-              <span className="text-primary">{formatINR(calcTotal)}</span>
-            </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>{formatINR(cartSubtotal)}</span>
+                    </div>
+                  {cartDiscount>0 && (
+                    <div className="flex justify-between">
+                      <span>Discount</span>
+                      <span>-{formatINR(cartDiscount)}</span>
+                      </div>
+                  )}
+                  <div className="flex justify-between"><span>Shipping</span>
+                    <span>{selected ? formatINR(selectedCost) : "—"}</span>
+                    </div>
+                </div>
 
-            {selectedCost===0 && selected && (
-              <Badge variant="secondary" className="justify-center w-full">
-                Free shipping applied!
-              </Badge>
+                <Separator/>
+
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total</span>
+                  <span className="text-primary">{formatINR(calcTotal)}</span>
+                </div>
+
+                {selectedCost===0 && selected && (
+                  <Badge variant="secondary" className="justify-center w-full">
+                    Free shipping applied!
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+              
+            {/* PAYMENT */}
+            {step === "pay" && (
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" /> Payment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={pay}
+                    disabled={busy}
+                    className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {busy
+                      ? <Loader2 className="w-4 h-4 animate-spin"/>
+                      : `Pay ${formatINR(cart.total || 0)} with Razorpay`}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-        
-        {/* PAYMENT */}
-        {step === "pay" && (
-          <Card className="mt-6 sticky top-24">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" /> Payment
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={pay}
-                disabled={busy}
-                className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
-              >
-                {busy
-                  ? <Loader2 className="w-4 h-4 animate-spin"/>
-                  : `Pay ${formatINR(cart.total || 0)} with Razorpay`}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+          </div>
         </div>
-      </div>
       </div>
     </div>
     <Footer/>
