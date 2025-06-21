@@ -305,15 +305,24 @@ export default function Checkout () {
               </Badge>
             )}
           </CardContent>
-                          {/* pay ---------------------------------------------------------- */}
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex gap-2 items-center">
+            <Truck className="h-4 w-4"/> Payment
+          </CardTitle>
+          </CardHeader>
+          <CardContent>
           {selected && (
-            <Button onClick={pay} disabled={busy}
-              className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
-              {busy
-                ? <Loader2 className="h-4 w-4 animate-spin"/>
-                : `Pay ${formatINR(calcTotal)} with Razorpay`}
-            </Button>
+          <Button onClick={pay} disabled={busy}
+            className="w-full h-12 mt-6 bg-gradient-to-r from-primary to-primary/80">
+            {busy
+              ? <Loader2 className="h-4 w-4 animate-spin"/>
+              : `Pay ${formatINR(calcTotal)} with Razorpay`}
+          </Button>
           )}
+          </CardContent>
         </Card>
 
       </div>
