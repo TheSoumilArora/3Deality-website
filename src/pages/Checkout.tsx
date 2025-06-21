@@ -25,6 +25,7 @@ import { formatINR } from "@/lib/money"
 
 export default function Checkout () {
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
+  const [step, setStep] = useState<"ship" | "pay">("ship")
   const navigate = useNavigate()
 
   const [busy,       setBusy]   = useState(false)
@@ -251,7 +252,6 @@ export default function Checkout () {
           </Card>
         </div>
 
-
         <div>
         {/* ---------------- right column – summary */}
         <Card className="sticky top-24">
@@ -308,6 +308,7 @@ export default function Checkout () {
             )}
           </CardContent>
         </Card>
+        
         {/* PAYMENT */}
         {step === "pay" && (
           <Card className="mt-6 sticky top-24">
