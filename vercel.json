@@ -4,7 +4,7 @@
     { "source": "/app/:path*", "destination": "https://api.3deality.in/app/:path*" },
     { "source": "/app", "destination": "https://api.3deality.in/app" },
     { "source": "/app/", "destination": "https://api.3deality.in/app" },
-    { "source": "/auth/:path*", "destination": "https://api.3deality.in/auth/:path*" },   // <-- add this line
+    { "source": "/auth/:path*", "destination": "https://api.3deality.in/auth/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
