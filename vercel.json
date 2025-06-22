@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/store/:path*", "destination": "https://api.3deality.in/store/:path*" },
-    { "source": "/store", "destination": "/index.html" }, // 👈 Add this line!
+    { "source": "/store", "destination": "/index.html" },
     { "source": "/app/:path*", "destination": "https://api.3deality.in/app/:path*" },
     { "source": "/app", "destination": "https://api.3deality.in/app" },
     { "source": "/app/", "destination": "https://api.3deality.in/app" },
