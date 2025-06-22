@@ -1,6 +1,5 @@
 import {useEffect, useState} from "react"
 import {useNavigate} from "react-router-dom"
-import useRazorpay from "react-razorpay"          
 import {
   ArrowLeft,
   Truck,
@@ -34,7 +33,6 @@ export default function Checkout () {
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
   const [step, setStep] = useState<"ship" | "pay">("ship")
   const navigate = useNavigate()
-  const [Razorpay] = useRazorpay()
 
   const [busy,       setBusy]   = useState(false)
   const [promoBusy,  setPB]     = useState(false)
@@ -145,7 +143,7 @@ export default function Checkout () {
     try {
       // 1) create & select the Razorpay session
       await medusa.carts.createPaymentSessions(cart.id)
-      await medusa.carts.setPaymentSession(cart.id, "razorpay")
+      // await medusa.carts.setPaymentSession(cart.id, "razorpay")
 
       // 2) fetch the full cart so we can grab the session data
       const { cart: full } = await medusa.carts.retrieve(cart.id, { expand: ["payment_sessions"] })
@@ -170,14 +168,14 @@ export default function Checkout () {
         },
         handler: async (response: any) => {
           // 5) capture & complete
-          await medusa.carts.capturePaymentSession(cart.id, {data: response,})
+         // await medusa.carts.capturePaymentSession(cart.id, {data: response,})
           await medusa.carts.complete(cart.id)
           clearCart()
           navigate("/order-confirmation")
         },
       }
 
-      new Razorpay(options).open()
+      // new Razorpay(options).open()
     } catch (err) {
       console.error(err)
       toast.error("Payment failed")
