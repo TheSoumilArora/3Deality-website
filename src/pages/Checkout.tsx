@@ -71,14 +71,17 @@ export default function Checkout () {
     try{
       const res = await fetch(`https://api.postalpincode.in/pincode/${addr.postal_code}`)
                      .then(r=>r.json())
+      setLock({city:false,province:false})
       if(res[0].Status==="Success"){
         const {District, State}= res[0].PostOffice[0]
         setAddr(a=>({...a, city:District, province:stateCodes[State]||""}))
         setLock({city:true, province:true})
-      }else{
+      }
+      else{
         setLock({city:false,province:false})
       }
-    }catch{ setLock({city:false,province:false}) }
+    }
+    catch{ setLock({city:false,province:false}) }
   }
 
   /* save address & load options --------------------------------------- */
