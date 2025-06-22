@@ -1,6 +1,15 @@
-
 {
   "rewrites": [
+    {
+      "source": "/store/:path(.*)",
+      "destination": "https://api.3deality.in/store/:path"
+    },
+
+    {
+      "source": "/admin/:path(.*)",
+      "destination": "https://api.3deality.in/app/:path"
+    },
+
     {
       "source": "/(.*)",
       "destination": "/index.html"
