@@ -61,18 +61,22 @@ export default function Checkout () {
   /* fetch shipping opts AFTER address saved */
   const fetchOpts = async()=> {
     if(!cart) return
+    // @ts-ignore: cart_id
     const {shipping_options}= await medusa.shippingOptions.list({cart_id:cart.id})
     setOpt(shipping_options)
   }
 
   /* pincode → autofill city/state ------------------------------------- */
   const handlePinBlur = async () => {
+    console.log("Pin blur!", addr.postal_code)
     if (addr.postal_code.length!==6) return
     try{
+      console.log("Pin blur! with call", addr.postal_code)
       const res = await fetch(`https://api.postalpincode.in/pincode/${addr.postal_code}`)
                      .then(r=>r.json())
       setLock({city:false,province:false})
       if(res[0].Status==="Success"){
+        console.log("Tried to set!", addr.postal_code)
         const {District, State}= res[0].PostOffice[0]
         setAddr(a=>({...a, city:District, province:stateCodes[State]||""}))
         setLock({city:true, province:true})
