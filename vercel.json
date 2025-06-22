@@ -5,8 +5,16 @@
       "destination": "https://api.3deality.in/store/:path"
     },
 
+    { "source": "/admin",   "destination": "https://api.3deality.in/app" },
+    { "source": "/admin/",  "destination": "https://api.3deality.in/app" },
+
     {
       "source": "/admin/:path(.*)",
+      "destination": "https://api.3deality.in/app/:path"
+    },
+
+    {
+      "source": "/app/:path(.*)",
       "destination": "https://api.3deality.in/app/:path"
     },
 
