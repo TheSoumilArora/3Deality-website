@@ -43,7 +43,7 @@ export default function Checkout () {
   const [addr, setAddr] = useState({
     first_name:"", last_name:"", email:"", phone:"",
     address_1:"", address_2:"", landmark:"",
-    city:"", province:"", postal_code:"", country_code:"IN", region_id:import.meta.env.VITE_MEDUSA_REGION_ID!,
+    city:"", province:"", postal_code:"", country_code:"IN",
   })
   const [lock, setLock] = useState({city:true, province:true})
 
