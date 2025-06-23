@@ -1,4 +1,3 @@
-
 import { motion } from 'framer-motion';
 import { CheckCircle, Package, Mail, Phone, MapPin, Calendar, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
