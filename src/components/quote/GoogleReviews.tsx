@@ -1,3 +1,4 @@
+'use client'
 import { motion } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/ui/card';

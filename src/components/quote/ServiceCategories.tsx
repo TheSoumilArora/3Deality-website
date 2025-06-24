@@ -1,3 +1,4 @@
+'use client'
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ShoppingCart, Wrench, Lightbulb } from 'lucide-react';

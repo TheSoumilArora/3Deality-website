@@ -1,3 +1,4 @@
+'use client'
 import React, { useRef } from 'react';
 import { Upload, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
