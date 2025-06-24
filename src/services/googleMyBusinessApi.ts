@@ -28,6 +28,8 @@ class GoogleMyBusinessAPI {
     this.locationName = 'accounts/YOUR_ACCOUNT_ID/locations/YOUR_LOCATION_ID';
   }
 
+  public formatReview = GoogleMyBusinessAPI.formatReview
+
   /**
    * Fetch reviews from Google My Business API
    * Documentation: https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list
