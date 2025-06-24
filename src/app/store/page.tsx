@@ -96,7 +96,7 @@ export default function Store() {
     try {
       // multiple variants → go to product-detail page
       if (product.variants && product.variants.length > 1) {
-        router.push(`/product/${product.id}`)
+        // router.push(`/product/${product.id}`)
         return
       }
 
@@ -116,7 +116,7 @@ export default function Store() {
   }
 
   const handleProductClick = (productId: string) => {
-    router.push(`/product/${productId}`)
+    // router.push(`/product/${productId}`)
   }
 
   if (loading) {
