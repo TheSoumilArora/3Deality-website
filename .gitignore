@@ -11,10 +11,21 @@ lerna-debug.log*
 .env.local
 .env.*.local
 
-node_modules
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 dist
 dist-ssr
 *.local
+
+# next.js
+/.next/
+/out/
 
 # Editor directories and files
 .vscode/*
@@ -24,5 +35,12 @@ dist-ssr
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
+*.son
 *.sw?
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
