@@ -1,22 +1,24 @@
-/** @type {import('next').NextConfig} */
-const path = require('path');
+// next.config.ts
+import path from "path";
+import type { NextConfig } from "next";
+import type { Configuration } from "webpack";
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
-  compiler: {
-    // enable if you ever use styled-components
-    // styledComponents: true,
-  },
-  webpack(config) {
-    // preserve your "@/…" alias
-    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
+  webpack(config: Configuration) {
+    // 1) Make sure .resolve and .resolve.alias actually exist
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      // preserve anything already there
+      ...(config.resolve.alias as Record<string, string> ?? {}),
+      // add our @ → src alias
+      "@": path.resolve(__dirname, "src"),
+    };
+
     return config;
   },
-  images: {
-    // turn off Next’s built-in loader until you wire Cloudinary/S3
-    unoptimized: true,
-  },
+  images: { unoptimized: true },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
