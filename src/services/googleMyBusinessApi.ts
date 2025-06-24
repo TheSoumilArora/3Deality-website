@@ -1,4 +1,3 @@
-
 // Google My Business API Service
 // You'll need to replace these placeholders with actual values from Google Cloud Console
 

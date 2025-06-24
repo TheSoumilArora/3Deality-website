@@ -1,4 +1,4 @@
-
+'use client'
 import { useState } from 'react'
 import { emailService } from '@/services/emailService'
 import { 

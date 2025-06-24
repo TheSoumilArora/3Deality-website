@@ -1,7 +1,8 @@
+'use client'
 import React from 'react';
 import { motion } from 'framer-motion';
 import { User, LogIn, UserPlus, Heart, Package, Settings, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,11 +10,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+} from '@/ui/dropdown-menu';
+import { Button } from '@/ui/button';
 
 export function UserAccountDropdown() {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   // Check if user is on sign-in or create-account pages to simulate logged-in state
   const currentPath = window.location.pathname;
@@ -23,32 +24,32 @@ export function UserAccountDropdown() {
   const userName = "John Doe";
 
   const handleLogin = () => {
-    navigate('/sign-in');
+    router.push('/sign-in');
   };
 
   const handleRegister = () => {
-    navigate('/create-account');
+    router.push('/create-account');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('demo-user-logged-in');
-    navigate('/');
+    router.push('/');
     console.log('User logged out');
   };
 
   const handleMyAccount = () => {
     localStorage.setItem('demo-user-logged-in', 'true');
-    navigate('/my-account');
+    router.push('/my-account');
   };
 
   const handleWishlist = () => {
     localStorage.setItem('demo-user-logged-in', 'true');
-    navigate('/wishlist');
+    router.push('/wishlist');
   };
 
   const handleMyOrders = () => {
     localStorage.setItem('demo-user-logged-in', 'true');
-    navigate('/my-orders');
+    router.push('/my-orders');
   };
 
   // Set logged in state when visiting account pages

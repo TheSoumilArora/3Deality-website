@@ -1,3 +1,4 @@
+'use client'
 import React, {createContext, useContext, useState, useEffect, ReactNode,} from "react"
 import medusa from "@/lib/medusaClient"
 
@@ -30,7 +31,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // ---------- helpers ----------
   const createFreshCart = async () => {
-    const region_id = import.meta.env.VITE_MEDUSA_REGION_ID
+    const region_id = process.env.NEXT_PUBLIC_MEDUSA_REGION_ID!
     const { cart: newCart } = await medusa.carts.create({ region_id,})
     localStorage.setItem("cart_id", newCart.id)
     return newCart

@@ -1,7 +1,6 @@
-
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/ui/button';
+import { Card, CardContent } from '@/ui/card';
 import { MessageCircle, Clock, FileText, Zap } from 'lucide-react';
 
 const whatsappFeatures = [
