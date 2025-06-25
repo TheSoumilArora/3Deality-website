@@ -148,7 +148,7 @@ export default function Checkout () {
     try {
       // 1) create & select the Razorpay session
       await medusa.carts.createPaymentSessions(cart.id)
-      // await medusa.carts.setPaymentSession(cart.id, "razorpay")
+      await medusa.carts.setPaymentSession(cart.id, "razorpay")
 
       // 2) fetch the full cart so we can grab the session data
       const { cart: full } = await medusa.carts.retrieve(cart.id, { expand: ["payment_sessions"] })
@@ -173,7 +173,7 @@ export default function Checkout () {
         },
         handler: async (response: any) => {
           // 5) capture & complete
-         // await medusa.carts.capturePaymentSession(cart.id, {data: response,})
+          await medusa.carts.capturePaymentSession(cart.id, {data: response,})
           await medusa.carts.complete(cart.id)
           clearCart()
           navigate("/order-confirmation")
