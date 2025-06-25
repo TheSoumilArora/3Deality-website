@@ -1,4 +1,4 @@
-'use client'
+
 import { motion } from 'framer-motion';
 import { Upload, Settings, Zap, Package } from 'lucide-react';
 

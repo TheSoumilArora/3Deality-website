@@ -1,11 +1,9 @@
-'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Moon, Sun, Menu, X } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
-import { Button } from '@/ui/button';
+import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/CartIcon';
 import { UserAccountDropdown } from '@/components/UserAccountDropdown';
 
@@ -20,7 +18,7 @@ const navLinks = [
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
+  const location = useLocation();
 
   return (
     <motion.nav 
@@ -31,28 +29,29 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <motion.div
+          <motion.div 
             whileHover={{ scale: 1.05 }}
-            className="flex items-center">
-            <Link href="/" className="text-xl font-bold text-foreground hover:text-primary transition-colors">
+            className="flex items-center"
+          >
+            <Link to="/" className="text-xl font-bold text-foreground hover:text-primary transition-colors">
               3Deality
             </Link>
           </motion.div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
+            {navLinks.map((link) => (
+              <motion.div key={link.href} whileHover={{ y: -2 }}>
                 <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`hover:underline ${isActive ? 'underline' : ''}`}
+                  to={link.href}
+                  className={`text-foreground/80 hover:text-foreground transition-colors ${
+                    location.pathname === link.href ? 'text-primary font-medium' : ''
+                  }`}
                 >
                   {link.label}
                 </Link>
-              );
-            })}
+              </motion.div>
+            ))}
           </div>
 
           {/* Right side controls */}
@@ -104,8 +103,10 @@ export function Navbar() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
-                className="block px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                to={link.href}
+                className={`block py-2 text-foreground/80 hover:text-foreground transition-colors ${
+                  location.pathname === link.href ? 'text-primary font-medium' : ''
+                }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {link.label}

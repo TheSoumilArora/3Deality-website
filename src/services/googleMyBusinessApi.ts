@@ -1,3 +1,4 @@
+
 // Google My Business API Service
 // You'll need to replace these placeholders with actual values from Google Cloud Console
 
@@ -27,8 +28,6 @@ class GoogleMyBusinessAPI {
     this.apiKey = 'YOUR_GOOGLE_MY_BUSINESS_API_KEY';
     this.locationName = 'accounts/YOUR_ACCOUNT_ID/locations/YOUR_LOCATION_ID';
   }
-
-  public formatReview = GoogleMyBusinessAPI.formatReview
 
   /**
    * Fetch reviews from Google My Business API

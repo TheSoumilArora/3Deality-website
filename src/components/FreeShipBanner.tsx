@@ -1,4 +1,3 @@
-'use client'
 import { Truck } from "lucide-react"
 import { formatINR } from "@/lib/money"
 
