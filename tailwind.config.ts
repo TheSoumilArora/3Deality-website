@@ -3,11 +3,13 @@ import type { Config } from "tailwindcss";
 export default {
 	darkMode: "class",
   	content: [
-  	  './src/app/**/*.{ts,tsx}',
-  	  './src/components/**/*.{ts,tsx}',
-  	  './src/hooks/**/*.{ts,tsx}',
-  	  './src/lib/**/*.{ts,tsx}',
-  	  './src/pages/**/*.{ts,tsx}',
+    	"./src/app/**/*.{js,ts,jsx,tsx}",
+    	"./src/pages/**/*.{js,ts,jsx,tsx}",
+    	"./src/components/**/*.{js,ts,jsx,tsx}",
+    	"./src/ui/**/*.{js,ts,jsx,tsx}",         // ← include your `ui` folder
+    	"./src/hooks/**/*.{js,ts,jsx,tsx}",
+    	"./src/lib/**/*.{js,ts,jsx,tsx}",
+    	"./src/services/**/*.{js,ts,jsx,tsx}",
   	],
 	prefix: "",
 	theme: {
