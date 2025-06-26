@@ -180,6 +180,9 @@ export default function Checkout () {
         },
       }
 
+      new window.Razorpay(options).open()
+
+
       // new Razorpay(options).open()
     } catch (err) {
       console.error(err)
