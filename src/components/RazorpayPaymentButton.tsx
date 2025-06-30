@@ -6,57 +6,50 @@ import { toast } from "sonner"
 import medusa from "@/lib/medusaClient"
 import { useCart } from "@/hooks/useCart"
 
-interface RazorpayPaymentButtonProps {
-  /** one of cart.payment_sessions, filtered to provider_id === "razorpay" */
-  session: {
-    id: string
-    provider_id: string
-    amount: number
-    currency_code: string
-    data: { razorpayOrder: { id: string } }
-  }
-  /** disable until the session has been created & data is populated */
-  notReady: boolean
+interface RazorpaySession {
+  id: string
+  provider_id: string
+  amount: number
+  currency_code: string
+  data: { razorpay_order_id: string }
 }
 
-/**
- * Drops into your checkout > pay step, renders a Razorpay-powered button
- */
-export const RazorpayPaymentButton: React.FC<RazorpayPaymentButtonProps> = ({
+export const RazorpayPaymentButton: React.FC<{ session: RazorpaySession }> = ({
   session,
-  notReady,
 }) => {
   const Razorpay = useRazorpay()
   const { cart, clearCart } = useCart()
-  const [submitting, setSubmitting]   = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string>()
-  const [orderId, setOrderId]         = useState<string>("")
+  const [loading, setLoading] = useState(false)
+  const [orderId, setOrderId] = useState("")
 
-  // once Medusa plugin has created the order, pull it out
+  // grab the Razorpay order ID once Medusa has returned it
   useEffect(() => {
-    const data = session.data
-    if (data?.razorpayOrder?.id) {
-      setOrderId(data.razorpayOrder.id)
+    if (session.data.razorpay_order_id) {
+      setOrderId(session.data.razorpay_order_id)
     }
   }, [session.data])
 
-  const handlePayment = useCallback(() => {
-    if (!cart) {
-      toast.error("No cart found")
-      return
+  const handleClick = useCallback(() => {
+    if (!cart || !orderId) {
+      return toast.error("Payment not ready")
     }
-    setSubmitting(true)
+    setLoading(true)
+
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID!,     // your publishable key
-      amount: session.amount,                         // in paise
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID!,
+      amount: session.amount,                // paise
       currency: session.currency_code.toUpperCase(),
-      order_id: orderId,                              // created by the plugin
+      order_id: orderId,                     // from session.data
       name: "3Deality",
-      description: "Your order",
-      handler: async (response: any) => {
+      description: "Your Order",
+      prefill: {
+        name: `${cart.shipping_address?.first_name} ${cart.shipping_address?.last_name}`,
+        email: cart.email,
+        contact: cart.shipping_address?.phone,
+      },
+      handler: async (resp: any) => {
         try {
-          // capture & complete
-          await medusa.carts.capturePaymentSession(cart.id, { data: response })
+          await medusa.carts.capturePaymentSession(cart.id, { data: resp })
           await medusa.carts.complete(cart.id)
           clearCart()
           window.location.href = "/order-confirmation"
@@ -71,25 +64,20 @@ export const RazorpayPaymentButton: React.FC<RazorpayPaymentButtonProps> = ({
     rzp.open()
     rzp.on("payment.failed", (err: any) => {
       console.error(err)
-      setErrorMessage(err.error?.description || "Payment failed")
-      setSubmitting(false)
+      toast.error(err.error?.description || "Payment failed")
+      setLoading(false)
     })
-  }, [Razorpay, cart, clearCart, session, orderId])
+  }, [cart, orderId, session, Razorpay, clearCart])
 
   return (
-    <div>
-      <Button
-        onClick={handlePayment}
-        disabled={notReady || submitting || !orderId}
-        className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
-      >
-        {submitting
-          ? "Processing…"
-          : `Pay ₹${(session.amount / 100).toFixed(2)} with Razorpay`}
-      </Button>
-      {errorMessage && (
-        <p className="text-red-600 mt-2">{errorMessage}</p>
-      )}
-    </div>
+    <Button
+      onClick={handleClick}
+      disabled={!orderId || loading}
+      className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
+    >
+      {loading
+        ? "Processing…"
+        : `Pay ₹${(session.amount / 100).toFixed(2)} with Razorpay`}
+    </Button>
   )
 }

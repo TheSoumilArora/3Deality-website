@@ -34,11 +34,30 @@ declare global {
 export default function Checkout () {
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
   const [step, setStep] = useState<"ship" | "pay">("ship")
+  const [bootingPay, setBootingPay] = useState(false)
   const navigate = useNavigate()
 
   const [busy,       setBusy]   = useState(false)
   const [promoBusy,  setPB]     = useState(false)
   const [code,       setCode]   = useState("")
+
+  useEffect(() => {
+    if (step === "pay" && cart) {
+      setBootingPay(true)
+      medusa.carts
+        .createPaymentSessions(cart.id)
+        .then(() => medusa.carts.setPaymentSession(cart.id, "razorpay"))
+        .then(() => refreshCart())
+        .catch((err) => {
+          console.error(err)
+          toast.error("Failed to initialize payment")
+        })
+        .finally(() => {
+          setBootingPay(false)
+        })
+    }
+  }, [step, cart, refreshCart])
+  
 
   /* address ----------------------------------------------------------- */
   const [addr, setAddr] = useState({
@@ -361,6 +380,7 @@ export default function Checkout () {
             </Card>
               
             {/* PAYMENT */}
+
             {step === "pay" && (
               <Card className="sticky top-24">
                 <CardHeader>
@@ -369,17 +389,23 @@ export default function Checkout () {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {cart.payment_sessions && (
-                    <RazorpayPaymentButton
-                      session={
-                        cart.payment_sessions.find(
-                          (s) => s.provider_id === "razorpay"
-                        )!
-                      }
-                      notReady={busy || !cart.payment_sessions.some(
-                        (s) => s.provider_id === "razorpay"
-                      )}
-                    />
+                  {bootingPay && (
+                    <p className="text-center py-4">Preparing payment…</p>
+                  )}
+
+                  {!bootingPay && cart?.payment_sessions ? (
+                    // find the Razorpay session object
+                    cart.payment_sessions
+                      .filter((s) => s.provider_id === "razorpay")
+                      .map((sess) => (
+                        <RazorpayPaymentButton key={sess.id} session={sess} />
+                      ))
+                  ) : (
+                    !bootingPay && (
+                      <p className="text-center py-4">
+                        Could not load payment method.
+                      </p>
+                    )
                   )}
                 </CardContent>
               </Card>
