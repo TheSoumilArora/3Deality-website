@@ -23,6 +23,7 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 import { register } from "module"
+import { RazorpayPaymentButton } from "@/components/RazorpayPaymentButton"
 
 declare global {
   interface Window {
@@ -368,15 +369,18 @@ export default function Checkout () {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    onClick={pay}
-                    disabled={busy}
-                    className="w-full h-12 bg-gradient-to-r from-primary to-primary/80"
-                  >
-                    {busy
-                      ? <Loader2 className="w-4 h-4 animate-spin"/>
-                      : `Pay ${formatINR(cart.total || 0)} with Razorpay`}
-                  </Button>
+                  {cart.payment_sessions && (
+                    <RazorpayPaymentButton
+                      session={
+                        cart.payment_sessions.find(
+                          (s) => s.provider_id === "razorpay"
+                        )!
+                      }
+                      notReady={busy || !cart.payment_sessions.some(
+                        (s) => s.provider_id === "razorpay"
+                      )}
+                    />
+                  )}
                 </CardContent>
               </Card>
             )}
