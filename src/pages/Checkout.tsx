@@ -23,7 +23,7 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 import { register } from "module"
-import { RazorpayPaymentButton } from "@/components/RazorpayPaymentButton"
+import RazorpayPaymentButton from "@/components/RazorpayPaymentButton"
 
 declare global {
   interface Window {
@@ -388,19 +388,20 @@ export default function Checkout () {
                     <CreditCard className="w-4 h-4" /> Payment
                   </CardTitle>
                 </CardHeader>
+
                 <CardContent>
                   {bootingPay && (
                     <p className="text-center py-4">Preparing payment…</p>
                   )}
 
-                  {!bootingPay && cart?.payment_sessions ? (
-                    // find the Razorpay session object
-                    cart.payment_sessions
-                      .filter((s) => s.provider_id === "razorpay")
-                      .map((sess) => (
-                        <RazorpayPaymentButton key={sess.id} session={sess} />
-                      ))
-                  ) : (
+                  {!bootingPay && cart?.payment_sessions
+                        ?.find((s) => s.provider_id === "razorpay") ? (
+                          <RazorpayPaymentButton      /* ⬅︎ changed */
+                            session={cart.payment_sessions.find(
+                              (s) => s.provider_id === "razorpay"
+                            )!}
+                          />
+                      ) : (
                     !bootingPay && (
                       <p className="text-center py-4">
                         Could not load payment method.
