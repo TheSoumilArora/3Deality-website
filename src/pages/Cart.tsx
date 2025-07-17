@@ -1,4 +1,3 @@
-/* src/pages/Cart.tsx */
 import React, { useState } from "react"
 import { motion } from "framer-motion"
 import { Navbar } from "@/components/Navbar"
