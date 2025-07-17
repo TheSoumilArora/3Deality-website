@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/store/:path*", "destination": "https://api.3deality.in/store/:path*" },
-    { "source": "/app/:path*", "destination": "https://api.3deality.in/app/:path*" },
-    { "source": "/auth/:path*", "destination": "https://api.3deality.in/auth/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
