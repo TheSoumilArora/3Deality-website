@@ -1,6 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { googleMyBusinessAPI, GoogleReview } from '@/services/googleMyBusinessApi';
+import {
+  googleMyBusinessAPI,
+  GoogleMyBusinessAPI,
+  GoogleReview,
+} from '@/services/googleMyBusinessApi';
 
 interface Review {
   id: string;
@@ -92,7 +96,7 @@ export function useGoogleReviews(): UseGoogleReviewsReturn {
       
       // Format reviews for display
       const formattedReviews = googleReviews.map(review => 
-        googleMyBusinessAPI.constructor.formatReview(review)
+        GoogleMyBusinessAPI.formatReview(review)
       );
 
       setReviews(formattedReviews);

@@ -19,7 +19,7 @@ interface GoogleMyBusinessLocation {
   locationId: string;
 }
 
-class GoogleMyBusinessAPI {
+export class GoogleMyBusinessAPI {
   private apiKey: string;
   private locationName: string; // Format: accounts/{account_id}/locations/{location_id}
 
