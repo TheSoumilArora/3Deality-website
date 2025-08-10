@@ -30,7 +30,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // ---------- helpers ----------
   const createFreshCart = async () => {
-    const { cart: newCart } = await medusa.carts.create({ country_code: "in" as any })
+    const region_id = import.meta.env.VITE_MEDUSA_REGION_ID
+    const { cart: newCart } = await medusa.carts.create({ region_id })
     localStorage.setItem("cart_id", newCart.id)
     return newCart
   }
