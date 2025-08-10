@@ -1,35 +1,43 @@
-import { motion } from 'framer-motion';
-import { CheckCircle, Package, Mail, Phone, MapPin, Calendar, CreditCard } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useMemo, useState } from "react"
+import { motion } from "framer-motion"
+import { CheckCircle, Package, Mail, Phone, MapPin, Calendar } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { formatINR } from "@/lib/money"
+
+type Order = {
+  id: string
+  display_id?: number | string
+  created_at?: string
+  email?: string
+  total?: number
+  items?: Array<{ id: string; title: string; quantity: number; unit_price: number }>
+  metadata?: Record<string, any>
+}
 
 export default function OrderConfirmation() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const [order, setOrder] = useState<Order | null>(null)
 
-  // Mock order data - this would come from your order context or API
-  const orderData = {
-    orderNumber: '43801',
-    status: 'Processing',
-    date: 'June 13, 2025',
-    email: 'customer@example.com',
-    total: 348.00,
-    paymentMethod: 'Credit Card/Debit Card/NetBanking',
-    items: [
-      { filename: 'Custom Model 1.stl', material: 'PLA', quantity: 2, price: 150 },
-      { filename: 'Prototype Part.stl', material: 'ABS', quantity: 1, price: 198 }
-    ]
-  };
+  useEffect(() => {
+    const raw = sessionStorage.getItem("last_order")
+    if (raw) {
+      try { setOrder(JSON.parse(raw)) } catch {}
+    }
+  }, [])
+
+  const total = useMemo(() => order?.total ?? 0, [order])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Navbar />
 
       <div className="container mx-auto px-4 py-24">
-        {/* Progress Steps */}
+        {/* Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">
             <div className="flex items-center text-muted-foreground">
@@ -56,7 +64,8 @@ export default function OrderConfirmation() {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          {/* Thank You Message */}
+
+          {/* Thank You */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -68,21 +77,19 @@ export default function OrderConfirmation() {
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
             </div>
-            <h1 className="text-4xl font-bold mb-4">THANK YOU!</h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Thank you for shopping with us. Your account has been charged and your transaction is successful. 
-              We will be processing your order soon.
+            <h1 className="text-4xl font-bold mb-2">THANK YOU!</h1>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Your order was placed successfully. We’ll email you the details shortly.
             </p>
           </motion.div>
 
-          {/* Order Summary */}
+          {/* Summary */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className="grid md:grid-cols-2 gap-8 mb-12"
           >
-            {/* Order Info */}
             <Card>
               <CardHeader>
                 <CardTitle>Order Information</CardTitle>
@@ -90,139 +97,85 @@ export default function OrderConfirmation() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-muted-foreground">Order Number:</div>
-                    <div className="font-bold text-lg">{orderData.orderNumber}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Order Number
+                    </div>
+                    
+                    <div className="font-bold text-lg">
+                      {order?.display_id ?? sessionStorage.getItem("last_order_display_id") ?? "—"}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Status:</div>
-                    <Badge variant="secondary">{orderData.status}</Badge>
+                    <div className="text-sm text-muted-foreground">Status</div>
+                    <Badge variant="secondary">Processing</Badge>
                   </div>
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-muted-foreground">Date:</div>
-                    <div className="font-medium">{orderData.date}</div>
+                    <div className="text-sm text-muted-foreground">Date</div>
+                    <div className="font-medium">
+                      {order?.created_at ? new Date(order.created_at).toLocaleString() : new Date().toLocaleString()}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground">Total:</div>
-                    <div className="font-bold text-lg text-primary">₹{orderData.total}</div>
+                    <div className="text-sm text-muted-foreground">Total</div>
+                    <div className="font-bold text-lg text-primary">{formatINR(total)}</div>
                   </div>
                 </div>
-
                 <div>
-                  <div className="text-sm text-muted-foreground">Email:</div>
-                  <div className="font-medium">{orderData.email}</div>
+                  <div className="text-sm text-muted-foreground">Email</div>
+                  <div className="font-medium">{order?.email ?? "—"}</div>
                 </div>
-
-                <div>
-                  <div className="text-sm text-muted-foreground">Payment Method:</div>
-                  <div className="font-medium">{orderData.paymentMethod}</div>
-                </div>
+                {order?.metadata?.shiprocket_order_id && (
+                  <div>
+                    <div className="text-sm text-muted-foreground">Shiprocket ID</div>
+                    <div className="font-medium">{String(order.metadata.shiprocket_order_id)}</div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Next Steps */}
             <Card>
-              <CardHeader>
-                <CardTitle>What's Next?</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>What's Next?</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <div className="font-medium">Order Confirmation</div>
-                    <div className="text-sm text-muted-foreground">
-                      You'll receive an email confirmation shortly
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Package className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <div className="font-medium">Processing</div>
-                    <div className="text-sm text-muted-foreground">
-                      We'll start printing your items within 24 hours
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <div className="font-medium">Updates</div>
-                    <div className="text-sm text-muted-foreground">
-                      We'll keep you updated via email and SMS
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <div className="font-medium">Delivery</div>
-                    <div className="text-sm text-muted-foreground">
-                      Expected delivery in 3-5 business days
-                    </div>
-                  </div>
-                </div>
+                <div className="flex items-start gap-3"><Mail className="w-5 h-5 text-primary mt-0.5" /><div><div className="font-medium">Order Confirmation</div><div className="text-sm text-muted-foreground">You’ll receive an email shortly.</div></div></div>
+                <div className="flex items-start gap-3"><Package className="w-5 h-5 text-primary mt-0.5" /><div><div className="font-medium">Processing</div><div className="text-sm text-muted-foreground">We’ll start preparing your items soon.</div></div></div>
+                <div className="flex items-start gap-3"><Phone className="w-5 h-5 text-primary mt-0.5" /><div><div className="font-medium">Updates</div><div className="text-sm text-muted-foreground">We’ll keep you updated via email/SMS.</div></div></div>
+                <div className="flex items-start gap-3"><MapPin className="w-5 h-5 text-primary mt-0.5" /><div><div className="font-medium">Delivery</div><div className="text-sm text-muted-foreground">Expected 3–5 business days.</div></div></div>
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Order Details */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
+          {/* Items */}
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}>
             <Card>
-              <CardHeader>
-                <CardTitle>Order Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {orderData.items.map((item, index) => (
-                    <div key={index} className="flex justify-between items-start p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.filename}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Material: {item.material} • Quantity: {item.quantity}
-                        </div>
-                      </div>
-                      <div className="font-bold">₹{item.price * item.quantity}</div>
+              <CardHeader><CardTitle>Order Details</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {(order?.items ?? []).map((it) => (
+                  <div key={it.id} className="flex justify-between items-start p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium">{it.title}</div>
+                      <div className="text-sm text-muted-foreground">Quantity: {it.quantity}</div>
                     </div>
-                  ))}
-                </div>
+                    <div className="font-bold">{formatINR((it.unit_price ?? 0) * it.quantity)}</div>
+                  </div>
+                ))}
+                {!order?.items?.length && (
+                  <p className="text-sm text-muted-foreground">Item details not available after a full page refresh.</p>
+                )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mt-12"
-          >
-            <Button
-              onClick={() => navigate('/my-orders')}
-              className="bg-gradient-to-r from-primary to-primary/80"
-            >
-              Track Your Orders
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/store')}
-            >
-              Continue Shopping
-            </Button>
+          {/* Actions */}
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.6 }} className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
+            <Button onClick={() => navigate("/my-orders")} className="bg-gradient-to-r from-primary to-primary/80">Track Your Orders</Button>
+            <Button variant="outline" onClick={() => navigate("/store")}>Continue Shopping</Button>
           </motion.div>
         </div>
       </div>
 
       <Footer />
     </div>
-  );
+  )
 }
