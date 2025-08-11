@@ -251,14 +251,48 @@ export default function Checkout ()
       toast.error("Select a shipping method first")
       return
     }
+
     setBusy(true)
     try {
-      await createSessions(cart.id)
-      const { order } = await medusa.carts.complete(cart.id) as any
+      const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
+      const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
+      const hdrs = { "Content-Type":"application/json", "x-publishable-api-key": PUB }
+
+      // ---- v2: create payment collection (idempotent) -----------------
+      let res = await fetch(`${BASE}/store/carts/${cart.id}/payment-collections`, {
+        method: "POST",
+        credentials: "include",
+        headers: hdrs,
+        body: JSON.stringify({ provider_id: "manual" }), // keep "manual" for test
+      })
+
+      // If your server is already on v2 this will be 200/201. If the collection
+      // already exists it's typically 409 — both are fine to proceed.
+      if (!res.ok && res.status !== 409) {
+        // Fallback for older backends that still use payment-sessions
+        // (avoid CORS preflight by using the SDK only if your backend supports it)
+        try {
+          await medusa.carts.createPaymentSessions(cart.id)
+          await medusa.carts.setPaymentSession(cart.id, { provider_id: "manual" })
+        } catch (e) {
+          throw new Error(`Could not init payment: ${res.status} ${await res.text()}`)
+        }
+      }
+
+      // ---- complete ---------------------------------------------------
+      const done = await fetch(`${BASE}/store/carts/${cart.id}/complete`, {
+        method: "POST",
+        credentials: "include",
+        headers: hdrs,
+      })
+      if (!done.ok) throw new Error(await done.text())
+      const { order } = await done.json()
+
       if (order) {
         sessionStorage.setItem("last_order", JSON.stringify(order))
         sessionStorage.setItem("last_order_display_id", String(order.display_id ?? ""))
       }
+
       clearCart()
       navigate("/order-confirmation")
     } catch (err) {
