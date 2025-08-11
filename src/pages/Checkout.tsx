@@ -33,24 +33,6 @@ export default function Checkout () {
   const [promoBusy,  setPB]     = useState(false)
   const [code,       setCode]   = useState("")
 
-  useEffect(() => {
-    if (step === "pay" && cart) {
-      setBootingPay(true)
-      medusa.carts
-        .createPaymentSessions(cart.id)
-        .then(() => medusa.carts.setPaymentSession(cart.id, { provider_id: "manual"}))
-        .then(() => refreshCart())
-        .catch((err) => {
-          console.error(err)
-          toast.error("Failed to initialize payment")
-        })
-        .finally(() => {
-          setBootingPay(false)
-        })
-    }
-  }, [step, cart, refreshCart])
-  
-
   /* address ----------------------------------------------------------- */
   const [addr, setAddr] = useState({
     first_name:"", last_name:"", email:"", phone:"",
@@ -194,22 +176,35 @@ export default function Checkout () {
       toast.error("Select a shipping method first")
       return
     }
-    setBusy(true)
-    try {
-      // 1) init + select payment provider
-      await medusa.carts.createPaymentSessions(cart.id)
-      await medusa.carts.setPaymentSession(cart.id, { provider_id: "manual" })
 
-      // 2) complete returns { order }
-      const { order } = await medusa.carts.complete(cart.id) as any
+    setBusy(true)
+      try {
+      const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
+      const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
+
+      // Directly complete the cart – Manual provider does not require a session
+      const res = await fetch(`${BASE}/store/carts/${cart.id}/complete`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-publishable-api-key": PUB,
+        },
+      })
+
+      if (!res.ok) {
+        const t = await res.text()
+        console.error("Complete failed:", res.status, t)
+        throw new Error(t || `HTTP ${res.status}`)
+      }
+
+      const { order } = await res.json()
 
       if (order) {
-        // keep data for the confirmation page (survives route change)
         sessionStorage.setItem("last_order", JSON.stringify(order))
         sessionStorage.setItem("last_order_display_id", String(order.display_id ?? ""))
       }
 
-      // 3) reset local cart and go to success
       clearCart()
       navigate("/order-confirmation")
     } catch (err) {
