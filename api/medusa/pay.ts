@@ -1,70 +1,91 @@
-// api/medusa/pay.ts  (V2-only: Payment Collections)
+// api/medusa/pay.ts  (V2-only)
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+export const config = { runtime: 'nodejs' } // ensure Node runtime (not Edge)
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
 
   const { cartId, providerId = 'manual' } =
     (req.body || {}) as { cartId?: string; providerId?: string }
+
   if (!cartId) return res.status(400).json({ message: 'cartId required' })
 
   const BASE =
-    process.env.VITE_MEDUSA_BACKEND_URL || process.env.MEDUSA_BACKEND_URL
+    process.env.VITE_MEDUSA_BACKEND_URL ||
+    process.env.MEDUSA_BACKEND_URL
   const PUB =
-    process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY || process.env.MEDUSA_PUBLISHABLE_API_KEY
-  if (!BASE || !PUB) return res.status(500).json({ message: 'Missing MEDUSA env vars' })
+    process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY ||
+    process.env.MEDUSA_PUBLISHABLE_API_KEY
 
-  const call = async (path: string, init?: RequestInit) => {
-    const r = await fetch(`${BASE.replace(/\/$/, '')}${path}`, {
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        'x-publishable-api-key': String(PUB),
-        ...(init?.headers || {}),
-      },
-      ...init,
-    })
-    const ct = r.headers.get('content-type') || ''
-    const data = ct.includes('application/json') ? await r.json().catch(() => ({})) : await r.text()
-    return { ok: r.ok, status: r.status, data }
+  if (!BASE || !PUB) {
+    return res.status(500).json({ message: 'Missing MEDUSA envs on server' })
+  }
+
+  const headers = {
+    'content-type': 'application/json',
+    'x-publishable-api-key': String(PUB),
   }
 
   try {
-    // 1) Ensure a Payment Collection exists for the cart
-    const created = await call(`/store/carts/${cartId}/payment-collections`, { method: 'POST' })
-    let pcId =
-      (created.data as any)?.payment_collection?.id ||
-      (created.data as any)?.id
+    // 1) Create (or ensure) payment collection for this cart
+    let pcId: string | undefined
+
+    // some servers already attach a payment_collection to the cart
+    try {
+      const cR = await fetch(`${BASE}/store/carts/${cartId}`, { headers })
+      const cJ = await cR.json().catch(() => ({}))
+      pcId = cJ?.cart?.payment_collection?.id ?? cJ?.payment_collection?.id
+    } catch {}
 
     if (!pcId) {
-      // If it already existed, fetch from the cart
-      const cart = await call(`/store/carts/${cartId}`, { method: 'GET' })
-      pcId =
-        (cart.data as any)?.cart?.payment_collection_id ||
-        (cart.data as any)?.cart?.payment_collection?.id
-    }
-    if (!pcId) {
-      return res.status(502).json({ step: 'create-payment-collection', status: created.status, error: created.data })
+      const make = await fetch(`${BASE}/store/payment-collections`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ cart_id: cartId }),
+      })
+      if (!make.ok) {
+        const err = await make.text()
+        return res.status(make.status).json({
+          step: 'create-payment-collection',
+          status: make.status,
+          error: err,
+        })
+      }
+      const mj = await make.json().catch(() => ({}))
+      pcId = mj?.payment_collection?.id ?? mj?.id
+      if (!pcId) {
+        return res.status(500).json({ message: 'payment_collection not returned' })
+      }
     }
 
-    // 2) Create a session for the provider (manual/offline)
-    const session = await call(`/store/payment-collections/${pcId}/sessions`, {
+    // 2) Create a payment session on that collection
+    const ps = await fetch(
+      `${BASE}/store/payment-collections/${pcId}/payment-sessions`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ provider_id: providerId }),
+      }
+    )
+    if (!ps.ok) {
+      const err = await ps.text()
+      return res.status(ps.status).json({
+        step: 'create-payment-session',
+        status: ps.status,
+        error: err,
+      })
+    }
+
+    // 3) Complete the cart
+    const done = await fetch(`${BASE}/store/carts/${cartId}/complete`, {
       method: 'POST',
-      body: JSON.stringify({ provider_id: providerId }),
+      headers,
     })
-    // some backends may return 409 if the session already exists — that’s fine
-    if (!session.ok && session.status !== 409) {
-      return res.status(502).json({ step: 'create-session', status: session.status, error: session.data })
-    }
 
-    // 3) Complete the cart → creates the order for manual payments
-    const done = await call(`/store/carts/${cartId}/complete`, { method: 'POST' })
-    if (!done.ok) {
-      return res.status(done.status).json({ step: 'complete', status: done.status, error: done.data })
-    }
-
-    return res.status(200).json(done.data)
+    const payload = await done.json().catch(() => ({}))
+    return res.status(done.status).json(payload)
   } catch (e: any) {
-    return res.status(500).json({ message: e?.message || 'proxy-failed' })
+    return res.status(502).json({ message: 'proxy-failed', error: String(e?.message || e) })
   }
 }
