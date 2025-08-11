@@ -254,39 +254,14 @@ export default function Checkout ()
 
     setBusy(true)
     try {
-      const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
-      const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
-      const hdrs = { "Content-Type":"application/json", "x-publishable-api-key": PUB }
-
-      // ---- v2: create payment collection (idempotent) -----------------
-      let res = await fetch(`${BASE}/store/carts/${cart.id}/payment-collections`, {
-        method: "POST",
-        credentials: "include",
-        headers: hdrs,
-        body: JSON.stringify({ provider_id: "manual" }), // keep "manual" for test
+      const res = await fetch('/api/medusa/pay', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cartId: cart.id, providerId: 'manual' }),
       })
 
-      // If your server is already on v2 this will be 200/201. If the collection
-      // already exists it's typically 409 — both are fine to proceed.
-      if (!res.ok && res.status !== 409) {
-        // Fallback for older backends that still use payment-sessions
-        // (avoid CORS preflight by using the SDK only if your backend supports it)
-        try {
-          await medusa.carts.createPaymentSessions(cart.id)
-          await medusa.carts.setPaymentSession(cart.id, { provider_id: "manual" })
-        } catch (e) {
-          throw new Error(`Could not init payment: ${res.status} ${await res.text()}`)
-        }
-      }
-
-      // ---- complete ---------------------------------------------------
-      const done = await fetch(`${BASE}/store/carts/${cart.id}/complete`, {
-        method: "POST",
-        credentials: "include",
-        headers: hdrs,
-      })
-      if (!done.ok) throw new Error(await done.text())
-      const { order } = await done.json()
+      if (!res.ok) throw new Error(await res.text())
+      const { order } = await res.json()
 
       if (order) {
         sessionStorage.setItem("last_order", JSON.stringify(order))
@@ -294,14 +269,15 @@ export default function Checkout ()
       }
 
       clearCart()
-      navigate("/order-confirmation")
+      navigate('/order-confirmation')
     } catch (err) {
       console.error(err)
-      toast.error("Payment failed")
+      toast.error('Payment failed')
     } finally {
       setBusy(false)
     }
   }
+
 
   /* ---------------------------------------------------------------- guards */
   if(!cart)            return null
