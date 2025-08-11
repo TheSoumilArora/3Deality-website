@@ -53,11 +53,20 @@ export default function Checkout () {
 
   /* --------------------------------------------------------------------- FX */
   /* fetch shipping opts AFTER address saved */
-  const fetchOpts = async()=> {
-    if(!cart) return
-    // @ts-ignore: cart_id
-    const {shipping_options}= await medusa.shippingOptions.list({cart_id:cart.id})
-    setOpt(shipping_options)
+  const fetchOpts = async () => {
+    if (!cart) return
+    const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
+    const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
+
+    const res = await fetch(`${BASE}/store/shipping-options?cart_id=${cart.id}`, {
+      credentials: "include",
+      headers: { "x-publishable-api-key": PUB },
+    })
+    const data = await res.json()
+    console.log("shipping options (raw):", data)
+    // handles either { shipping_options: [...] } or [...]
+    const ops = Array.isArray(data) ? data : (data.shipping_options ?? [])
+    setOpt(ops)
   }
 
   /* pincode → autofill city/state ------------------------------------- */
