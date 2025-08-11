@@ -26,7 +26,6 @@ import { formatINR } from "@/lib/money"
 export default function Checkout () {
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
   const [step, setStep] = useState<"ship" | "pay">("ship")
-  const [bootingPay, setBootingPay] = useState(false)
   const navigate = useNavigate()
 
   const [busy,       setBusy]   = useState(false)
@@ -87,14 +86,14 @@ export default function Checkout () {
     setBusy(true)
 
     try {
-      const { landmark, email, ...core } = addr
+      const { landmark, email, country_code, ...address } = addr
 
       const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
       const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
       const url  = `${BASE}/store/carts/${cart.id}`
       const body = JSON.stringify({
         email,
-        shipping_address: { ...core, country_code: "in", metadata: landmark ? { landmark } : undefined },
+        shipping_address: { ...address, metadata: landmark ? { landmark } : undefined },
       })
       const headers = {
         "Content-Type": "application/json",
@@ -179,27 +178,13 @@ export default function Checkout () {
 
     setBusy(true)
       try {
-      const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
-      const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
-
-      // Directly complete the cart – Manual provider does not require a session
-      const res = await fetch(`${BASE}/store/carts/${cart.id}/complete`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-publishable-api-key": PUB,
-        },
-      })
-
-      if (!res.ok) {
-        const t = await res.text()
-        console.error("Complete failed:", res.status, t)
-        throw new Error(t || `HTTP ${res.status}`)
-      }
-
-      const { order } = await res.json()
-
+      // 1) create payment collection + init a session for the provider
+      await medusa.carts.createPaymentSessions(cart.id)
+      await medusa.carts.setPaymentSession(cart.id, { provider_id: "manual" })
+      
+      // 2) place the order
+      const { order } = await medusa.carts.complete(cart.id) as any
+      
       if (order) {
         sessionStorage.setItem("last_order", JSON.stringify(order))
         sessionStorage.setItem("last_order_display_id", String(order.display_id ?? ""))
@@ -393,13 +378,9 @@ export default function Checkout () {
                 </CardHeader>
 
                 <CardContent>
-                  {bootingPay ? (
-                    <p className="text-center py-4">Preparing payment…</p>
-                  ) : (
-                        <Button className="w-full h-12" onClick={pay} disabled={busy}>
-                          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Place Order"}
-                        </Button>
-                  )}
+                  <Button className="w-full h-12" onClick={pay} disabled={busy || !selected}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Place Order"}
+                  </Button>
                   <p className="text-xs text-muted-foreground mt-2 text-center">
                     You won’t be charged online for this test flow.
                   </p>
