@@ -23,6 +23,41 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
+async function createSessions(cartId: string) {
+  try {
+    // try the SDK path first
+    await medusa.carts.createPaymentSessions(cartId)
+    await medusa.carts.setPaymentSession(cartId, { provider_id: "manual" })
+    return
+  } catch (e) {
+    // fallback to raw endpoints to dodge any redirect/preflight quirks
+    const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
+    const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
+    const headers = { "x-publishable-api-key": PUB }
+
+    // POST (no slash)
+    let r = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
+      method: "POST", credentials: "include", headers,
+    })
+    // if server expects a trailing slash
+    if (!r.ok) {
+      r = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions/`, {
+        method: "POST", credentials: "include", headers,
+      })
+    }
+    if (!r.ok) throw new Error(await r.text())
+
+    // select the provider
+    const r2 = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ provider_id: "manual" }),
+    })
+    if (!r2.ok) throw new Error(await r2.text())
+  }
+}
+
 export default function Checkout ()
 {
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
@@ -216,21 +251,14 @@ export default function Checkout ()
       toast.error("Select a shipping method first")
       return
     }
-
     setBusy(true)
-      try {
-      // 1) create payment collection + init a session for the provider
-      await medusa.carts.createPaymentSessions(cart.id)
-      await medusa.carts.setPaymentSession(cart.id, { provider_id: "manual" })
-      
-      // 2) place the order
+    try {
+      await createSessions(cart.id)
       const { order } = await medusa.carts.complete(cart.id) as any
-      
       if (order) {
         sessionStorage.setItem("last_order", JSON.stringify(order))
         sessionStorage.setItem("last_order_display_id", String(order.display_id ?? ""))
       }
-
       clearCart()
       navigate("/order-confirmation")
     } catch (err) {
