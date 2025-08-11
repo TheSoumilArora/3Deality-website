@@ -1,74 +1,82 @@
 // api/medusa/pay.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { randomUUID } from 'node:crypto'
+export const config = { runtime: "edge" };
 
-export const config = { runtime: 'nodejs' }
+export default async function handler(req: Request) {
+  if (req.method !== "POST")
+    return new Response("Method Not Allowed", { status: 405 });
 
-async function readBody(r: Response) {
-  const t = await r.text().catch(() => '')
-  try { return JSON.parse(t) } catch { return { raw: t } }
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
-
-  const { cartId, providerId = 'manual' } =
-    (req.body || {}) as { cartId?: string; providerId?: string }
-  if (!cartId) return res.status(400).json({ message: 'cartId required' })
+  const { cartId, providerId = "manual" } = await req.json().catch(() => ({}));
+  if (!cartId)
+    return json({ message: "cartId required" }, 400);
 
   const BASE =
-    process.env.VITE_MEDUSA_BACKEND_URL || process.env.MEDUSA_BACKEND_URL
+    process.env.VITE_MEDUSA_BACKEND_URL || process.env.MEDUSA_BACKEND_URL;
   const PUB =
-    process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY || process.env.MEDUSA_PUBLISHABLE_API_KEY
+    process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY || process.env.MEDUSA_PUBLISHABLE_API_KEY;
 
-  if (!BASE || !PUB) {
-    return res.status(500).json({ message: 'Missing MEDUSA env (BASE/PUB)' })
-  }
+  if (!BASE || !PUB)
+    return json({ message: "Missing MEDUSA env vars on function" }, 500);
 
   const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    'x-publishable-api-key': String(PUB),
-    'Idempotency-Key': randomUUID(),
-  }
+    "content-type": "application/json",
+    "x-publishable-api-key": String(PUB),
+  };
 
   try {
-    // ---- Init session (v2)
-    let r = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
-      method: 'POST',
+    // 1) create sessions (ok if they already exist)
+    const c = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
+      method: "POST",
       headers,
-    })
+    });
+    if (!c.ok && c.status !== 409) {
+      const t = await c.text();
+      console.error("create payment-sessions failed:", c.status, t);
+      return json({ step: "create", status: c.status, error: t }, 502);
+    }
 
-    // ---- If v2 init failed, try the v1 single-step “set provider”
-    if (!r.ok) {
-      const v1 = await fetch(`${BASE}/store/carts/${cartId}/payment-session`, {
-        method: 'POST',
+    // 2) select provider (v1 path)
+    const s = await fetch(`${BASE}/store/carts/${cartId}/payment-session`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ provider_id: providerId }),
+    });
+
+    // fallback to v2-style setter if needed
+    if (!s.ok) {
+      const s2 = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
+        method: "PUT",
         headers,
         body: JSON.stringify({ provider_id: providerId }),
-      })
-      if (!v1.ok) {
-        return res.status(v1.status).json({ step: 'init(v1)', data: await readBody(v1) })
-      }
-    } else {
-      // ---- v2 “select provider”
-      const set = await fetch(`${BASE}/store/carts/${cartId}/payment-sessions`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ provider_id: providerId }),
-      })
-      if (!set.ok) {
-        return res.status(set.status).json({ step: 'set(v2)', data: await readBody(set) })
+      });
+      if (!s2.ok) {
+        const t = await s2.text();
+        console.error("set payment session failed:", s2.status, t);
+        return json({ step: "set", status: s2.status, error: t }, 502);
       }
     }
 
-    // ---- Complete cart
+    // 3) complete cart → order
     const done = await fetch(`${BASE}/store/carts/${cartId}/complete`, {
-      method: 'POST',
+      method: "POST",
       headers,
-    })
-    const body = await readBody(done)
-    return res.status(done.ok ? 200 : done.status).json(body)
-  } catch (e: any) {
-    console.error('pay proxy failed:', e?.stack || e)
-    return res.status(500).json({ message: 'proxy-failed', error: String(e?.message || e) })
+    });
+
+    // pass through Medusa response as-is
+    const body = await done.text();
+    return new Response(body, {
+      status: done.status,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (err: any) {
+    console.error("pay proxy crashed:", err?.message || err);
+    return json({ message: "proxy-failed" }, 500);
   }
+}
+
+/* small helper */
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
