@@ -23,7 +23,8 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
-export default function Checkout () {
+export default function Checkout ()
+{
   const {cart, items, cartCount, clearCart, refreshCart} = useCart()
   const [step, setStep] = useState<"ship" | "pay">("ship")
   const navigate = useNavigate()
@@ -33,7 +34,8 @@ export default function Checkout () {
   const [code,       setCode]   = useState("")
 
   /* address ----------------------------------------------------------- */
-  const [addr, setAddr] = useState({
+  const [addr, setAddr] = useState
+  ({
     first_name:"", last_name:"", email:"", phone:"",
     address_1:"", address_2:"", landmark:"",
     city:"", province:"", postal_code:"", country_code:"in",
@@ -53,12 +55,14 @@ export default function Checkout () {
 
   /* --------------------------------------------------------------------- FX */
   /* fetch shipping opts AFTER address saved */
-  const fetchOpts = async () => {
+  const fetchOpts = async () =>
+  {
     if (!cart) return
     const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
     const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
 
-    const res = await fetch(`${BASE}/store/shipping-options?cart_id=${cart.id}`, {
+    const res = await fetch(`${BASE}/store/shipping-options?cart_id=${cart.id}`,
+    {
       credentials: "include",
       headers: { "x-publishable-api-key": PUB },
     })
@@ -70,73 +74,88 @@ export default function Checkout () {
   }
 
   /* pincode → autofill city/state ------------------------------------- */
-  const handlePinBlur = async () => {
+  const handlePinBlur = async () => 
+  {
     if (addr.postal_code.length!==6) return
-    try{
+    try
+    {
       const res = await fetch(`https://api.postalpincode.in/pincode/${addr.postal_code}`)
                      .then(r=>r.json())
       setLock({city:false,province:false})
-      if(res[0].Status==="Success"){
+      
+      if(res[0].Status==="Success")
+      {
         const {District, State}= res[0].PostOffice[0]
         setAddr(a=>({...a, city:District, province:stateCodes[State]||""}))
         setLock({city:true, province:true})
       }
-      else{
+      
+      else
+      {
         setLock({city:false,province:false})
       }
     }
+
     catch{ setLock({city:false,province:false}) }
   }
 
   /* save address & load options --------------------------------------- */
-  const saveAddress = async (e: React.FormEvent) => {
+  const saveAddress = async (e: React.FormEvent) => 
+  {
     e.preventDefault()
     if (!cart) return
     setBusy(true)
 
-    try {
+    try 
+    {
       const { landmark, email, country_code, ...address } = addr
 
       const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
       const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
-      const url  = `${BASE}/store/carts/${cart.id}`
-      const body = JSON.stringify({
-        email,
-        shipping_address: { ...address, metadata: landmark ? { landmark } : undefined },
+      
+      const res = await fetch(`${BASE}/store/carts/${cart.id}`, 
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-publishable-api-key": PUB,
+        },
+
+        body: JSON.stringify
+        ({
+          email,
+          shipping_address: 
+          {
+            ...address,
+            country_code: country_code || "in",
+            metadata: landmark ? { landmark } : undefined
+          }
+        })
       })
-      const headers = {
-        "Content-Type": "application/json",
-        "x-publishable-api-key": PUB,
-      } as const
 
-      // try POST → PATCH → PUT (first that works stays)
-      const tryOnce = async (method: "POST" | "PATCH" | "PUT") => {
-        const r = await fetch(url, { method, credentials: "include", headers, body })
-        return { ok: r.ok, status: r.status, text: await r.text() }
-      }
+      if (!res.ok) throw new Error(await res.text())
 
-      let res = await tryOnce("POST")
-      if (!res.ok && res.status === 404) res = await tryOnce("PATCH")
-      if (!res.ok && res.status === 404) res = await tryOnce("PUT")
-
-      if (!res.ok) {
-        console.error("Save address failed:", res.status, res.text)
-        throw new Error(res.text || `HTTP ${res.status}`)
-      }
-
-      await fetchOpts()
       await refreshCart()
+      await fetchOpts()
       toast.success("Address saved – choose your shipping")
-    } catch (err) {
+    }
+    
+    catch (err)
+    {
       console.error(err)
       toast.error("Server rejected the address")
-    } finally {
+    }
+    
+    finally
+    {
       setBusy(false)
     }
   }
 
   /* add / change shipping method -------------------------------------- */
-  const chooseShipping = async(optId:string)=>{
+  const chooseShipping = async(optId:string)=>
+  {
     if(!cart) return
     try{
       await medusa.carts.addShippingMethod(cart.id, {option_id:optId})
@@ -144,36 +163,49 @@ export default function Checkout () {
       await refreshCart()
       setStep("pay")
       toast.success("Shipping updated")
-    }catch(err){
+    }
+    
+    catch(err)
+    {
       toast.error("Couldn’t set shipping, try again")
     }
   }
 
   /* promotions --------------------------------------------------------- */
-  const applyCode = async () => {
+  const applyCode = async () => 
+  {
     if (!cart || !code.trim()) return
     setPB(true)
     try {
       const BASE = import.meta.env.VITE_MEDUSA_BACKEND_URL
       const PUB  = import.meta.env.VITE_MEDUSA_PUBLISHABLE_API_KEY as string
 
-      const res = await fetch(`${BASE}/store/carts/${cart.id}/promotions`, {
+      const res = await fetch(`${BASE}/store/carts/${cart.id}/promotions`,
+      {
         method: "POST",
         credentials: "include",
-        headers: {
+        headers:
+        {
           "Content-Type": "application/json",
           "x-publishable-api-key": PUB,
         },
         body: JSON.stringify({ promo_codes: [code.trim()] }),
       })
+
       if (!res.ok) throw new Error(await res.text())
 
       await refreshCart() // pulls new totals + promotions[]
       toast.success("Promotion applied")
-    } catch (e) {
+    }
+    
+    catch (e)
+    {
       console.error(e)
       toast.error("Invalid code")
-    } finally {
+    }
+    
+    finally
+    {
       setPB(false)
     }
   }
