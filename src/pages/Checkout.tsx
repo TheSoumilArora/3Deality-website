@@ -22,6 +22,8 @@ import { toast } from "sonner"
 import { stateCodes } from "@/lib/stateCodes"
 import { formatINR } from "@/lib/money"
 
+type PayMethod = "cod" | "hdfc"
+
 async function createSessions(cartId: string) {
   try {
     // try the SDK path first
@@ -66,6 +68,10 @@ export default function Checkout ()
   const [busy,       setBusy]   = useState(false)
   const [promoBusy,  setPB]     = useState(false)
   const [code,       setCode]   = useState("")
+
+  const [paying, setPaying] = useState(false)
+
+
 
   /* address ----------------------------------------------------------- */
   const [addr, setAddr] = useState
@@ -277,6 +283,73 @@ export default function Checkout ()
     }
   }
 
+  async function placeOrder(method: PayMethod)
+  {
+    if (!cart || !selected)
+    {
+      toast.error("Select a shipping method first")
+      return
+    }
+    setPaying(true)
+    
+    try 
+    {
+      // 1) create + complete order via our API route (v2 payment collections)
+      const res = await fetch("/api/medusa/pay", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cartId: cart.id,
+          providerId: "pp_system", // built-in system provider
+          method,                  // "cod" | "hdfc"
+        }),
+      })
+
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+
+      const order = data?.order
+      if (!order) throw new Error("No order returned")
+
+      // Keep for confirmation page
+      sessionStorage.setItem("last_order", JSON.stringify(order))
+      sessionStorage.setItem("last_order_display_id", String(order.display_id ?? ""))
+
+      // 2) If COD, create a Shiprocket order in the background (best effort)
+      if (method === "cod")
+      {
+        fetch("/api/shiprocket/order",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ order, method: "cod" }),
+        }).catch(() => {}) // don’t block the UX
+      }
+
+      if (method === "hdfc")
+      {
+        await fetch("/api/shiprocket/order", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ order, method: "hdfc", paid: true }),
+        }).catch(() => {}) // don’t block the UX
+      }
+
+      clearCart()
+      navigate("/order-confirmation")
+    }
+    
+    catch (e)
+    {
+      console.error(e)
+      toast.error("Payment failed")
+    }
+    
+    finally
+    {
+      setPaying(false)
+    }
+  }
 
   /* ---------------------------------------------------------------- guards */
   if(!cart)            return null
@@ -455,12 +528,26 @@ export default function Checkout ()
                   </CardTitle>
                 </CardHeader>
 
-                <CardContent>
-                  <Button className="w-full h-12" onClick={pay} disabled={busy || !selected}>
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Place Order"}
+                <CardContent className="space-y-3">
+                  <Button
+                    className="w-full h-12"
+                    disabled={paying || !selected}
+                    onClick={() => placeOrder("cod")}
+                  >
+                    {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cash on Delivery"}
                   </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full h-12"
+                    disabled={paying || !selected}
+                    onClick={() => placeOrder("hdfc")}
+                  >
+                    {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pay with HDFC (stub)"}
+                  </Button>
+
                   <p className="text-xs text-muted-foreground mt-2 text-center">
-                    You won’t be charged online for this test flow.
+                    HDFC is a placeholder for now; both flows create the order.
                   </p>
                 </CardContent>
               </Card>

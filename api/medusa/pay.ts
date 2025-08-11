@@ -1,69 +1,86 @@
-// api/medusa/pay.ts  (Medusa v2)
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-export const config = { runtime: "nodejs" };
+// api/medusa/pay.ts  (Vercel/Netlify Node function, ESM)
+import type { VercelRequest, VercelResponse } from "@vercel/node"
+
+export const config = { runtime: "nodejs" } // force Node runtime
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed")
 
-  const { cartId, providerId = 'system' } = (req.body || {}) as {
-    cartId?: string;
-    providerId?: string
-  };
-  if (!cartId) return res.status(400).json({ message: "cartId required" });
+  try {
+    const { cartId, providerId = "pp_system", method } =
+      (req.body || {}) as { cartId?: string; providerId?: string; method?: "cod" | "hdfc" }
 
-  const BASE = process.env.VITE_MEDUSA_BACKEND_URL;
-  const PUB = process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY;
+    if (!cartId) return res.status(400).json({ message: "cartId required" })
 
-  const headers = { "content-type": "application/json", "x-publishable-api-key": String(PUB), };
+    const BASE =
+      process.env.VITE_MEDUSA_BACKEND_URL ||
+      process.env.MEDUSA_BACKEND_URL
+    const PUB =
+      process.env.VITE_MEDUSA_PUBLISHABLE_API_KEY ||
+      process.env.MEDUSA_PUBLISHABLE_API_KEY
 
-  try 
-  {
-    // 1) Ensure a payment collection exists
-    let pcId: string | undefined;
-    try 
-    {
-      const c = await fetch(`${BASE}/store/carts/${cartId}`, { headers }).then(r => r.json()).catch(() => ({} as any));
-      pcId = c?.cart?.payment_collection?.id ?? c?.payment_collection?.id
+    if (!BASE || !PUB) {
+      return res.status(500).json({ message: "Missing MEDUSA envs on server" })
     }
-    catch {}
 
-    if (!pcId)
-    {
-      const r = await fetch(`${BASE}/store/payment-collections`, {
+    const headers = {
+      "content-type": "application/json",
+      "x-publishable-api-key": String(PUB),
+    }
+
+    // Optional: tag the cart with the chosen method (for reporting)
+    await fetch(`${BASE}/store/carts/${cartId}`, {
+      method: "POST", // v2 uses POST to update
+      headers,
+      body: JSON.stringify({ metadata: { payment_method_choice: method ?? "unknown" } }),
+    }).catch(() => {})
+
+    // 1) Create (or ensure) a payment collection for this cart
+    let pcId: string | undefined
+
+    // if backend already attached a collection on the cart, reuse it
+    try {
+      const cR = await fetch(`${BASE}/store/carts/${cartId}`, { headers })
+      const cJ = await cR.json().catch(() => ({}))
+      pcId = cJ?.cart?.payment_collection?.id ?? cJ?.payment_collection?.id
+    } catch {}
+
+    if (!pcId) {
+      const make = await fetch(`${BASE}/store/payment-collections`, {
         method: "POST",
         headers,
         body: JSON.stringify({ cart_id: cartId }),
-      });
-      if (!r.ok)
-      {
-        return res.status(r.status).json({ step: "create-payment-collection", status: r.status, error: await r.text(), });
+      })
+      if (!make.ok) {
+        const err = await make.text()
+        return res.status(make.status).json({ step: "create-payment-collection", error: err })
       }
-      const j = await r.json().catch(() => ({}));
-      pcId = j?.payment_collection?.id ?? j?.id;
-      if (!pcId)
-        return res.status(500).json({ message: "payment_collection not returned" });
+      const mj = await make.json().catch(() => ({}))
+      pcId = mj?.payment_collection?.id ?? mj?.id
+      if (!pcId) return res.status(500).json({ message: "payment_collection not returned" })
     }
 
-    // 2) Create a payment session for that collection (v2 path)
-    const ps = await fetch(`${BASE}/store/payment-collections/${pcId}/payment-sessions`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ provider_id: providerId }),
-      });
-    if (!ps.ok)
-    {
-      return res.status(ps.status).json({ step: "create-payment-session", status: ps.status, error: await ps.text(), });
+    // 2) Create a payment session against the collection (system provider)
+    const ps = await fetch(`${BASE}/store/payment-collections/${pcId}/sessions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ provider_id: providerId }),
+    })
+    if (!ps.ok) {
+      const err = await ps.text()
+      return res.status(ps.status).json({ step: "create-payment-session", error: err })
     }
 
-    // 3) Complete the cart
-    const done = await fetch(`${BASE}/store/carts/${cartId}/complete`, { method: "POST", headers, });
-    const payload = await done.json().catch(() => ({}));
-    return res.status(done.status).json(payload);
-  }
-  
-  catch (e: any)
-  {
-    return res.status(502).json({ message: "proxy-failed", error: String(e?.message || e) });
+    // 3) Complete the cart → returns { order }
+    const done = await fetch(`${BASE}/store/carts/${cartId}/complete`, {
+      method: "POST",
+      headers,
+    })
+
+    const payload = await done.json().catch(() => ({}))
+    return res.status(done.status).json(payload)
+  } catch (e: any) {
+    console.error("pay proxy error:", e?.message || e)
+    return res.status(502).json({ message: "proxy-failed" })
   }
 }
